@@ -22,11 +22,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "flowmeter"))
 
 DPI = 300
-PX_PER_MM = 15.63          # 77 mm = 1203.4 px (also checks 52.7, 30.2, G1/2)
-X_LEFT_PX = 721.1          # left (outlet) thread end, X = -38.5
-SIDE_AXIS_PX = 1250.7      # flow axis row, side view
-TOP_AXIS_PX = 1846.2       # flow axis row, top view
-VIEWS = {                  # name: (pixel rows/cols to crop, projection axes)
+PX_PER_MM = 15.63  # 77 mm = 1203.4 px (also checks 52.7, 30.2, G1/2)
+X_LEFT_PX = 721.1  # left (outlet) thread end, X = -38.5
+SIDE_AXIS_PX = 1250.7  # flow axis row, side view
+TOP_AXIS_PX = 1846.2  # flow axis row, top view
+VIEWS = {  # name: (pixel rows/cols to crop, projection axes)
     "side (Z up)": {"rows": (520, 1520), "axis_px": SIDE_AXIS_PX, "proj": 2},
     "top (Y up)": {"rows": (1560, 2120), "axis_px": TOP_AXIS_PX, "proj": 1},
 }
@@ -43,8 +43,10 @@ def main(pdf: Path) -> None:
     import flowmeter as FM
 
     with tempfile.TemporaryDirectory() as td:
-        subprocess.run(["pdftoppm", "-f", "1", "-l", "1", "-r", str(DPI), "-png",
-                        str(pdf), f"{td}/p"], check=True)
+        subprocess.run(
+            ["pdftoppm", "-f", "1", "-l", "1", "-r", str(DPI), "-png", str(pdf), f"{td}/p"],
+            check=True,
+        )
         img = np.asarray(Image.open(next(Path(td).glob("p*.png"))).convert("L"))
 
     solid = FM.make_flowmeter()
@@ -52,8 +54,7 @@ def main(pdf: Path) -> None:
     pts = np.array([(v.X, v.Y, v.Z) for v in verts])
     tris = pts[np.array(faces)]
 
-    fig, axes = plt.subplots(2, 1, figsize=(10, 12),
-                             gridspec_kw={"height_ratios": [1000, 560]})
+    fig, axes = plt.subplots(2, 1, figsize=(10, 12), gridspec_kw={"height_ratios": [1000, 560]})
     for ax, (name, v) in zip(axes, VIEWS.items()):
         r0, r1 = v["rows"]
         c0, c1 = int(X_LEFT_PX - 60), int(X_LEFT_PX + 77 * PX_PER_MM + 120)
@@ -62,8 +63,7 @@ def main(pdf: Path) -> None:
         to_y = lambda r, a=v["axis_px"]: (a - r) / PX_PER_MM
         ax.imshow(crop, cmap="gray", extent=(to_x(c0), to_x(c1), to_y(r1), to_y(r0)))
         poly = tris[:, :, [0, v["proj"]]]
-        ax.add_collection(PolyCollection(poly, facecolors=(0.1, 0.4, 1.0, 0.05),
-                                         edgecolors="none"))
+        ax.add_collection(PolyCollection(poly, facecolors=(0.1, 0.4, 1.0, 0.05), edgecolors="none"))
         ax.set_title(f"SV3051 datasheet drawing vs flowmeter.py - {name}")
         ax.set_xlabel("X mm (flow -X)")
         ax.set_aspect("equal")

@@ -21,8 +21,15 @@ from build123d import Box, Pos, Rot
 from ocp_vscode import Camera, set_port, show
 
 ROOT = Path(__file__).resolve().parents[1]
-for sub in ("", "valve", "valve_connector", "valve_clamp", "flowmeter", "flowmeter_connector",
-            "flowmeter_clamp"):
+for sub in (
+    "",
+    "valve",
+    "valve_connector",
+    "valve_clamp",
+    "flowmeter",
+    "flowmeter_connector",
+    "flowmeter_clamp",
+):
     sys.path.insert(0, str(ROOT / sub))
 
 import assembly as A
@@ -43,12 +50,27 @@ def wall(parts):
 
 def exploded(parts):
     """Offset each group along its assembly direction (+Y out of the wall)."""
-    step = {"clamp_base": 0, "wall_screw": -25, "valve": 45, "fitting": 45, "flowmeter": 45,
-            "qsf": 45, "tube": 45, "clamp_cap": 95, "fm_clamp": 95, "m5": 140, "m4": 140}
+    step = {
+        "clamp_base": 0,
+        "wall_screw": -25,
+        "valve": 45,
+        "fitting": 45,
+        "flowmeter": 45,
+        "qsf": 45,
+        "tube": 45,
+        "clamp_cap": 95,
+        "fm_clamp": 95,
+        "m5": 140,
+        "m4": 140,
+    }
     # fittings and their tubes also move outward along the flow axis, away
     # from the body they screw into (valve at X = 0, flowmeter at A.X_FM)
-    side = {"fitting": (25, 0.0), "tube_out": (60, 0.0),
-            "qsf": (25, A.X_FM), "tube_in": (60, A.X_FM)}
+    side = {
+        "fitting": (25, 0.0),
+        "tube_out": (60, 0.0),
+        "qsf": (25, A.X_FM),
+        "tube_in": (60, A.X_FM),
+    }
     out = {}
     for n, p in parts.items():
         dy = next(v for k, v in step.items() if n.startswith(k))
@@ -62,9 +84,23 @@ def exploded(parts):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("what", nargs="?", default="assembly",
-                    choices=["assembly", "parts", "exploded", "valve", "connector", "base", "cap",
-                             "flowmeter", "flowmeter_connector", "flowmeter_fitted"])
+    ap.add_argument(
+        "what",
+        nargs="?",
+        default="assembly",
+        choices=[
+            "assembly",
+            "parts",
+            "exploded",
+            "valve",
+            "connector",
+            "base",
+            "cap",
+            "flowmeter",
+            "flowmeter_connector",
+            "flowmeter_fitted",
+        ],
+    )
     ap.add_argument("--port", type=int, default=3939)
     a = ap.parse_args()
     import socket
@@ -72,9 +108,11 @@ def main() -> None:
     with socket.socket() as s:
         s.settimeout(1)
         if s.connect_ex(("127.0.0.1", a.port)) != 0:
-            sys.exit(f"No OCP viewer on port {a.port}. Start it first:\n"
-                     "  uv run python -m ocp_vscode   (opens http://127.0.0.1:3939/viewer)\n"
-                     "  or open the OCP CAD Viewer pane in VS Code.")
+            sys.exit(
+                f"No OCP viewer on port {a.port}. Start it first:\n"
+                "  uv run python -m ocp_vscode   (opens http://127.0.0.1:3939/viewer)\n"
+                "  or open the OCP CAD Viewer pane in VS Code."
+            )
     set_port(a.port)
 
     if a.what in ("assembly", "exploded"):
@@ -125,8 +163,7 @@ def main() -> None:
         names, objs, alphas = [single[0]], [single[1]], [1.0]
 
     cols = ["#202020" if "/dim_" in n else color_of(n.split("/")[-1]) for n in names]
-    show(*objs, names=names, colors=cols, alphas=alphas,
-         reset_camera=Camera.RESET)
+    show(*objs, names=names, colors=cols, alphas=alphas, reset_camera=Camera.RESET)
     print(f"Sent '{a.what}' ({len(objs)} objects) to OCP viewer on port {a.port}")
 
 

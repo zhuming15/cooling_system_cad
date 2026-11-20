@@ -40,31 +40,44 @@ from build123d import (
 
 # --- Catalogue -------------------------------------------------------------
 HEX_AF = 24.0
-HEX_AC = HEX_AF / 0.8660254            # 27.71
-BODY_D = 20.8                          # D5
-THREAD_MAJOR_D = 20.955                # G1/2 (cosmetic female thread: modelled at major)
+HEX_AC = HEX_AF / 0.8660254  # 27.71
+BODY_D = 20.8  # D5
+THREAD_MAJOR_D = 20.955  # G1/2 (cosmetic female thread: modelled at major)
 THREAD_MINOR_D = 18.631
-THREAD_DEPTH = 14.0                    # L2
+THREAD_DEPTH = 14.0  # L2
 TUBE_OD = 12.0
-TUBE_INSERT = 23.3                     # Festo datasheet 190653 (2026); 2016 catalogue says 23.2
+TUBE_INSERT = 23.3  # Festo datasheet 190653 (2026); 2016 catalogue says 23.2
 
 # --- Vendor-model stations (v from release-ring end) -----------------------
 L_TOTAL = 40.8
-RING_PROFILE = [                       # (r, v) outer profile of the release ring
-    (7.00, 0.00), (9.90, 0.50), (9.90, 1.50), (9.05, 2.30), (9.25, 2.50),
-    (9.25, 2.80), (9.05, 3.00), (9.25, 3.20), (9.25, 3.50),
+RING_PROFILE = [  # (r, v) outer profile of the release ring
+    (7.00, 0.00),
+    (9.90, 0.50),
+    (9.90, 1.50),
+    (9.05, 2.30),
+    (9.25, 2.50),
+    (9.25, 2.80),
+    (9.05, 3.00),
+    (9.25, 3.20),
+    (9.25, 3.50),
 ]
-RING_END_V = 3.50                      # ring / body split
-RING_ID = 14.0                         # release ring bore; the metal collet sleeve
-                                       # (dia 14 / dia 12) sits inside it, flush at v = 0
-BODY_PROFILE = [                       # (r, v) body outer profile up to the hex
-    (9.65, 3.50), (9.96, 4.34), (10.40, 4.50), (10.40, 19.80),
+RING_END_V = 3.50  # ring / body split
+RING_ID = 14.0  # release ring bore; the metal collet sleeve
+# (dia 14 / dia 12) sits inside it, flush at v = 0
+BODY_PROFILE = [  # (r, v) body outer profile up to the hex
+    (9.65, 3.50),
+    (9.96, 4.34),
+    (10.40, 4.50),
+    (10.40, 19.80),
 ]
-HEX_ENVELOPE = [                       # chamfered-corner envelope of the hex
-    (10.40, 19.80), (HEX_AC / 2 + 0.01, 23.27), (HEX_AC / 2 + 0.01, 40.30),
-    (12.49, 40.67), (12.00, L_TOTAL),
+HEX_ENVELOPE = [  # chamfered-corner envelope of the hex
+    (10.40, 19.80),
+    (HEX_AC / 2 + 0.01, 23.27),
+    (HEX_AC / 2 + 0.01, 40.30),
+    (12.49, 40.67),
+    (12.00, L_TOTAL),
 ]
-TUBE_BORE_V = 23.30                    # dia 12 tube bore depth (vendor model) = insertion depth
+TUBE_BORE_V = 23.30  # dia 12 tube bore depth (vendor model) = insertion depth
 CONE_TOP = (7.27, L_TOTAL - THREAD_DEPTH)  # (r, v) thread floor inner edge, v = 26.8
 
 
@@ -84,8 +97,14 @@ def _to_local(s: Solid) -> Solid:
 
 def _bores() -> Solid:
     tube = _v_cyl(TUBE_OD + 0.02, -1, TUBE_BORE_V)
-    cone = _revolve_rz([(0, TUBE_BORE_V), (TUBE_OD / 2 + 0.01, TUBE_BORE_V),
-                        (CONE_TOP[0], CONE_TOP[1]), (0, CONE_TOP[1])])
+    cone = _revolve_rz(
+        [
+            (0, TUBE_BORE_V),
+            (TUBE_OD / 2 + 0.01, TUBE_BORE_V),
+            (CONE_TOP[0], CONE_TOP[1]),
+            (0, CONE_TOP[1]),
+        ]
+    )
     thread = _v_cyl(THREAD_MAJOR_D, CONE_TOP[1], L_TOTAL + 1)
     return tube + cone + thread
 
@@ -97,7 +116,7 @@ def make_release_ring() -> Solid:
 
 def make_body() -> Solid:
     core = _revolve_rz([(0, RING_END_V)] + BODY_PROFILE + [(0, BODY_PROFILE[-1][1])])
-    core += _v_cyl(RING_ID - 0.02, 0, RING_END_V + 0.01)     # collet sleeve inside the ring
+    core += _v_cyl(RING_ID - 0.02, 0, RING_END_V + 0.01)  # collet sleeve inside the ring
     hexp = Pos(0, 0, HEX_ENVELOPE[0][1]) * extrude(
         RegularPolygon(HEX_AF / 2, 6, major_radius=False, rotation=30),
         amount=L_TOTAL - HEX_ENVELOPE[0][1],
@@ -118,10 +137,12 @@ def make_fitting() -> Solid:
 def make_tube(length: float = 40.0) -> Solid:
     """12x8 tube stub pushed home (insertion depth 23.2 from the ring end)."""
     z0 = L_TOTAL - TUBE_INSERT
-    t = Pos(0, 0, z0) * Cylinder(TUBE_OD / 2 - 0.02, length + TUBE_INSERT,
-                                 align=(Align.CENTER, Align.CENTER, Align.MIN))
-    return t - Pos(0, 0, z0 - 1) * Cylinder(4.0, length + TUBE_INSERT + 2,
-                                            align=(Align.CENTER, Align.CENTER, Align.MIN))
+    t = Pos(0, 0, z0) * Cylinder(
+        TUBE_OD / 2 - 0.02, length + TUBE_INSERT, align=(Align.CENTER, Align.CENTER, Align.MIN)
+    )
+    return t - Pos(0, 0, z0 - 1) * Cylinder(
+        4.0, length + TUBE_INSERT + 2, align=(Align.CENTER, Align.CENTER, Align.MIN)
+    )
 
 
 if __name__ == "__main__":
@@ -129,8 +150,10 @@ if __name__ == "__main__":
 
     f = make_fitting()
     bb = f.bounding_box()
-    print(f"QSF-1/2-12-B bbox: {bb.size.X:.2f} x {bb.size.Y:.2f} x {bb.size.Z:.2f} mm "
-          f"(Z {bb.min.Z:.2f}..{bb.max.Z:.2f})")
+    print(
+        f"QSF-1/2-12-B bbox: {bb.size.X:.2f} x {bb.size.Y:.2f} x {bb.size.Z:.2f} mm "
+        f"(Z {bb.min.Z:.2f}..{bb.max.Z:.2f})"
+    )
     out = Path(__file__).with_name("festo_qsf-1-2-12-b.step")
     export_step(f, str(out))
     print(f"Exported {out}")

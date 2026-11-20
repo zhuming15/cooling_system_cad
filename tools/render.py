@@ -19,17 +19,36 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "output"
-for sub in ("", "valve", "valve_connector", "valve_clamp", "flowmeter", "flowmeter_connector",
-            "flowmeter_clamp"):
+for sub in (
+    "",
+    "valve",
+    "valve_connector",
+    "valve_clamp",
+    "flowmeter",
+    "flowmeter_connector",
+    "flowmeter_clamp",
+):
     sys.path.insert(0, str(ROOT / sub))
 
 COLORS = {
-    "valve_body": "#c9ccd1", "valve_bonnet": "#aeb3ba", "valve_knob": "#c8a64a",
-    "valve_scale": "#2f5fd0", "fitting": "#d9c27a", "tube": "#3b82c4",
-    "clamp_base": "#8fa3b8", "clamp_cap": "#a7b9cc", "m5": "#303030", "m4": "#303030",
-    "wall_screw": "#505050", "wall": "#efe6cf",
-    "flowmeter_pipe": "#6f7680", "flowmeter_housing": "#4d535c", "flowmeter_m12": "#c3c8cf",
-    "qsf_body": "#d3d7dc", "qsf_release_ring": "#1f6fd1", "fm_clamp": "#a7b9cc",
+    "valve_body": "#c9ccd1",
+    "valve_bonnet": "#aeb3ba",
+    "valve_knob": "#c8a64a",
+    "valve_scale": "#2f5fd0",
+    "fitting": "#d9c27a",
+    "tube": "#3b82c4",
+    "clamp_base": "#8fa3b8",
+    "clamp_cap": "#a7b9cc",
+    "m5": "#303030",
+    "m4": "#303030",
+    "wall_screw": "#505050",
+    "wall": "#efe6cf",
+    "flowmeter_pipe": "#6f7680",
+    "flowmeter_housing": "#4d535c",
+    "flowmeter_m12": "#c3c8cf",
+    "qsf_body": "#d3d7dc",
+    "qsf_release_ring": "#1f6fd1",
+    "fm_clamp": "#a7b9cc",
 }
 LIGHT = np.array([0.35, 0.8, 0.5]) / np.linalg.norm([0.35, 0.8, 0.5])
 
@@ -82,15 +101,21 @@ def render_assembly(parts: dict[str, Solid], path: Path) -> None:
     tri, col, lo, hi = shaded_tris([(p, color_of(n)) for n, p in parts.items()], 0.15)
     lo, hi = lo - 10, hi + 10
     x0, x1, z0, z1 = lo[0], hi[0], lo[2], hi[2]
-    wall = np.array([[[x0, 0, z0], [x1, 0, z0], [x1, 0, z1]],
-                     [[x0, 0, z0], [x1, 0, z1], [x0, 0, z1]]])
-    views = [("Isometric (operator side)", 22, 60), ("Front (operator view)", 0, 90),
-             ("Side (wall at left)", 0, 0), ("Top (wall at top)", 89, 90)]
+    wall = np.array(
+        [[[x0, 0, z0], [x1, 0, z0], [x1, 0, z1]], [[x0, 0, z0], [x1, 0, z1], [x0, 0, z1]]]
+    )
+    views = [
+        ("Isometric (operator side)", 22, 60),
+        ("Front (operator view)", 0, 90),
+        ("Side (wall at left)", 0, 0),
+        ("Top (wall at top)", 89, 90),
+    ]
     fig = plt.figure(figsize=(18, 12))
     for i, (title, elev, azim) in enumerate(views):
         ax = fig.add_subplot(2, 2, i + 1, projection="3d")
-        ax.add_collection3d(Poly3DCollection(wall, facecolors=COLORS["wall"], alpha=0.35,
-                                             edgecolors="none"))
+        ax.add_collection3d(
+            Poly3DCollection(wall, facecolors=COLORS["wall"], alpha=0.35, edgecolors="none")
+        )
         ax.add_collection3d(Poly3DCollection(tri, facecolors=col, edgecolors="none"))
         _frame(ax, np.minimum(lo, [x0, -10, z0]), hi, elev, azim, 1.0)
         ax.set_title(title)
@@ -115,25 +140,55 @@ def render_components(path: Path) -> None:
     flowmeter = [(s, color_of(f"flowmeter_{n}")) for n, s in FM.make_flowmeter_parts().items()]
     qsf = [(s, color_of(f"qsf_{n}")) for n, s in FC.make_fitting_parts().items()]
     fitted = list(flowmeter)
-    x_face = FM.L_TOTAL / 2 - FM.THREAD_L      # fitting face at the thread run-out
+    x_face = FM.L_TOTAL / 2 - FM.THREAD_L  # fitting face at the thread run-out
     for sgn in (-1, 1):
         fitted += [(Pos(sgn * x_face, 0, 0) * Rot(0, sgn * 90, 0) * s, c) for s, c in qsf]
     rows = [
-        ("Valve - RS PRO 283-8289 (G1/4, square body)",
-         [(s, color_of(n)) for n, s in valve.items()], (25, 50), (0, 0), None),
-        ("Push-in connector - SMC KQ2H12-U02A (x2)",
-         [(F.make_fitting(), COLORS["fitting"])], (25, 40), (0, 0), None),
-        ("Station base - one piece, valve + flowmeter cradles (6061-T6)",
-         [(FCL.make_station_base(A.X_FM, -A.FLOW_DIR), COLORS["clamp_base"])], (25, 60), (25, 230), None),
-        ("Clamp cap (6061-T6)",
-         [(C.make_cap_unclamped(), COLORS["clamp_cap"])], (25, 50), (-35, 250), None),
-        ("Clamp screws ISO 4762 M5x25 (x4, as fitted)",
-         [(s, COLORS["m5"]) for s in C.make_m5_screws()], (25, 50), (0, 0), 1),
+        (
+            "Valve - RS PRO 283-8289 (G1/4, square body)",
+            [(s, color_of(n)) for n, s in valve.items()],
+            (25, 50),
+            (0, 0),
+            None,
+        ),
+        (
+            "Push-in connector - SMC KQ2H12-U02A (x2)",
+            [(F.make_fitting(), COLORS["fitting"])],
+            (25, 40),
+            (0, 0),
+            None,
+        ),
+        (
+            "Station base - one piece, valve + flowmeter cradles (6061-T6)",
+            [(FCL.make_station_base(A.X_FM, -A.FLOW_DIR), COLORS["clamp_base"])],
+            (25, 60),
+            (25, 230),
+            None,
+        ),
+        (
+            "Clamp cap (6061-T6)",
+            [(C.make_cap_unclamped(), COLORS["clamp_cap"])],
+            (25, 50),
+            (-35, 250),
+            None,
+        ),
+        (
+            "Clamp screws ISO 4762 M5x25 (x4, as fitted)",
+            [(s, COLORS["m5"]) for s in C.make_m5_screws()],
+            (25, 50),
+            (0, 0),
+            1,
+        ),
         ("Flowmeter - ifm SV3051 (G1/2 male, 0.5-10 l/min)", flowmeter, (25, -60), (0, -90), None),
         ("Flowmeter connector - Festo QSF-1/2-12-B (x2)", qsf, (25, 40), (0, 0), None),
         ("Flowmeter with 2 x QSF-1/2-12-B fitted", fitted, (25, -60), (0, -90), None),
-        ("Flowmeter strap (x2, 6061-T6)",
-         [(FCL.make_cap_unclamped(FCL.STRAP_X), COLORS["fm_clamp"])], (25, 50), (-35, 250), None),
+        (
+            "Flowmeter strap (x2, 6061-T6)",
+            [(FCL.make_cap_unclamped(FCL.STRAP_X), COLORS["fm_clamp"])],
+            (25, 50),
+            (-35, 250),
+            None,
+        ),
     ]
     fig = plt.figure(figsize=(12, 5.2 * len(rows)))
     for i, (title, solids, v1, v2, size_of) in enumerate(rows):

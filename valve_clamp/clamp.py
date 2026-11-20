@@ -48,33 +48,33 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "valve"))
 import valve as V
 
 # --- Interface to the valve ------------------------------------------------
-AXIS_Y = 30.0               # valve flow axis distance from wall
-POCKET_CLR = 0.15           # channel width = valve body width + clearance
+AXIS_Y = 30.0  # valve flow axis distance from wall
+POCKET_CLR = 0.15  # channel width = valve body width + clearance
 POCKET_W = V.BODY_W + POCKET_CLR
-POCKET_R = 1.5              # channel corner radius (dia 3 end mill)
-SPLIT_GAP = 0.5             # nominal gap at parting plane (before clamping)
+POCKET_R = 1.5  # channel corner radius (dia 3 end mill)
+SPLIT_GAP = 0.5  # nominal gap at parting plane (before clamping)
 
 # --- Clamp envelope --------------------------------------------------------
-CLAMP_L = 42.0              # along X; < valve body (46) so port faces stay free
-CLAMP_H = 41.0              # pedestal / cap height along Z
-CAP_TOP_WALL = 6.0          # cap material in front of the body front face
-WINDOW_D = 27.5             # access window: boss half-diagonal 12.7, knob dia 22
-VALVE_PLATE_L = 57.0        # back-plate length under the valve (wall screws at +/-20)
+CLAMP_L = 42.0  # along X; < valve body (46) so port faces stay free
+CLAMP_H = 41.0  # pedestal / cap height along Z
+CAP_TOP_WALL = 6.0  # cap material in front of the body front face
+WINDOW_D = 27.5  # access window: boss half-diagonal 12.7, knob dia 22
+VALVE_PLATE_L = 57.0  # back-plate length under the valve (wall screws at +/-20)
 
 # --- Wall bracket ----------------------------------------------------------
 PLATE_T = 12.0
-PLATE_H = 92.0              # along Z
+PLATE_H = 92.0  # along Z
 WALL_SCREW_X = 20.0
 WALL_SCREW_Z = 37.0
-WALL_SLOT = 6.0             # vertical adjustment (+/-3 mm)
-WALL_HOLE_D = 6.6           # M6 clearance
-WALL_CB_D = 11.5            # M6 SHCS head dia 10 + clearance
+WALL_SLOT = 6.0  # vertical adjustment (+/-3 mm)
+WALL_HOLE_D = 6.6  # M6 clearance
+WALL_CB_D = 11.5  # M6 SHCS head dia 10 + clearance
 WALL_CB_DEPTH = 6.5
 
 # --- Clamp screws (ISO 4762 M5 x 25, 8.8) ----------------------------------
 M5_X = 14.5
 M5_Z = 13.5
-M5_TORQUE = 3.0             # N.m (VDI 2230 max for 8.8 at mu 0.12: 5.9 N.m)
+M5_TORQUE = 3.0  # N.m (VDI 2230 max for 8.8 at mu 0.12: 5.9 N.m)
 # Preload per N.m of tightening torque, 8.8 screws, mu 0.12 (VDI 2230 table as
 # published by Pfeiffer Vacuum: M4 3.0 N.m -> 4.4 kN, M5 5.9 N.m -> 7.2 kN).
 PRELOAD_N_PER_NM = {"M4": 4400 / 3.0, "M5": 7200 / 5.9}
@@ -94,14 +94,16 @@ Y_CAP_TOP = AXIS_Y + POCKET_W / 2 + CAP_TOP_WALL
 
 # Clamped state: valve sits on the base cradle floor, cap pulled down onto
 # the valve front face.
-VALVE_Y = AXIS_Y - POCKET_W / 2 + V.BODY_W / 2          # = AXIS_Y - 0.075
+VALVE_Y = AXIS_Y - POCKET_W / 2 + V.BODY_W / 2  # = AXIS_Y - 0.075
 CAP_DROP = (AXIS_Y + POCKET_W / 2) - (VALVE_Y + V.BODY_W / 2)  # = 0.15
-CLAMP_PRELOAD_TRAVEL = SPLIT_GAP - CAP_DROP              # remaining gap
+CLAMP_PRELOAD_TRAVEL = SPLIT_GAP - CAP_DROP  # remaining gap
 
 
 def _x_rod(d: float, y: float, z: float) -> Solid:
-    return Pos(-CLAMP_L / 2 - 1, y, z) * Rot(0, 90, 0) * Cylinder(
-        d / 2, CLAMP_L + 2, align=(Align.CENTER, Align.CENTER, Align.MIN)
+    return (
+        Pos(-CLAMP_L / 2 - 1, y, z)
+        * Rot(0, 90, 0)
+        * Cylinder(d / 2, CLAMP_L + 2, align=(Align.CENTER, Align.CENTER, Align.MIN))
     )
 
 
@@ -143,8 +145,10 @@ def make_base() -> Solid:
                 (WALL_HOLE_D, PLATE_T + 2, -1.0),
                 (WALL_CB_D, WALL_CB_DEPTH + 1, PLATE_T - WALL_CB_DEPTH),
             ):
-                slot = Plane.XZ.offset(-y0) * Pos(sx * WALL_SCREW_X, sz * WALL_SCREW_Z) * (
-                    SlotCenterToCenter(WALL_SLOT, d, rotation=90)
+                slot = (
+                    Plane.XZ.offset(-y0)
+                    * Pos(sx * WALL_SCREW_X, sz * WALL_SCREW_Z)
+                    * (SlotCenterToCenter(WALL_SLOT, d, rotation=90))
                 )
                 base -= extrude(slot, amount=-depth)
     return base
@@ -161,9 +165,13 @@ def make_cap_unclamped() -> Solid:
     window = _y_cyl(WINDOW_D, 40.0, 0, Y_SPLIT_CAP - 5, 0)
     cap -= window
     cap = chamfer(
-        cap.edges().filter_by(lambda e: abs(e.radius - WINDOW_D / 2) < 1e-3
-                              and e.center().Y > Y_CAP_TOP - 0.01
-                              if e.geom_type.name == "CIRCLE" else False),
+        cap.edges().filter_by(
+            lambda e: (
+                abs(e.radius - WINDOW_D / 2) < 1e-3 and e.center().Y > Y_CAP_TOP - 0.01
+                if e.geom_type.name == "CIRCLE"
+                else False
+            )
+        ),
         1.5,
     )
 
@@ -212,6 +220,8 @@ if __name__ == "__main__":
     export_step(cap, str(here / "rs_2838289_clamp_cap.step"))
     for n, p in (("base", base), ("cap", cap)):
         bb = p.bounding_box()
-        print(f"{n}: {bb.size.X:.1f} x {bb.size.Y:.1f} x {bb.size.Z:.1f} mm, "
-              f"{p.volume * 2.70e-3:.0f} g (6061)")
+        print(
+            f"{n}: {bb.size.X:.1f} x {bb.size.Y:.1f} x {bb.size.Z:.1f} mm, "
+            f"{p.volume * 2.70e-3:.0f} g (6061)"
+        )
     print("Exported rs_2838289_clamp_cap.step (base: see flowmeter_clamp/station_base.step)")

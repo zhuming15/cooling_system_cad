@@ -45,8 +45,11 @@ def section(tris: np.ndarray, axis: int = 2, eps: float = 1e-4) -> np.ndarray:
     segs = []
     for t in tris:
         d = t[:, axis]
-        pts = [t[i] + d[i] / (d[i] - d[(i + 1) % 3]) * (t[(i + 1) % 3] - t[i])
-               for i in range(3) if (d[i] < 0) != (d[(i + 1) % 3] < 0)]
+        pts = [
+            t[i] + d[i] / (d[i] - d[(i + 1) % 3]) * (t[(i + 1) % 3] - t[i])
+            for i in range(3)
+            if (d[i] < 0) != (d[(i + 1) % 3] < 0)
+        ]
         if len(pts) == 2:
             segs.append(pts)
     return np.array(segs)
@@ -63,18 +66,20 @@ def _presets():
     return {
         "valve_connector": {
             "title": "SMC KQ2H12-U02A",
-            "solid": lambda: Rot(-90, 0, 0) * VC.make_fitting(),   # our +Z -> vendor +Y
+            "solid": lambda: Rot(-90, 0, 0) * VC.make_fitting(),  # our +Z -> vendor +Y
             "plane_axis": 2,
             "skip": None,
         },
         "flowmeter_connector": {
             "title": "Festo QSF-1/2-12-B",
             "solid": lambda: Pos(0, 0, FC.L_TOTAL) * Rot(180, 0, 0) * FC.make_fitting(),
-            "plane_axis": 1,   # section through the hex flats (vendor flats on +/-X)
+            "plane_axis": 1,  # section through the hex flats (vendor flats on +/-X)
             # female thread: we model it at the major dia (cosmetic thread
             # convention), the vendor mesh at the minor dia
-            "skip": lambda v: (np.abs(np.hypot(v[:, 0], v[:, 1]) - FC.THREAD_MINOR_D / 2) < 0.02)
-            & (v[:, 2] > FC.CONE_TOP[1] - 0.01),
+            "skip": lambda v: (
+                (np.abs(np.hypot(v[:, 0], v[:, 1]) - FC.THREAD_MINOR_D / 2) < 0.02)
+                & (v[:, 2] > FC.CONE_TOP[1] - 0.01)
+            ),
             "skip_reason": "female thread bore (vendor: minor dia, ours: major dia)",
         },
     }
@@ -111,8 +116,10 @@ def compare(part: str, bin_path: Path) -> float:
         ax.plot(s[:, ax_keep[0]], s[:, ax_keep[1]], "b-", lw=1)
     ax.plot([], [], "r-", lw=4, alpha=0.45, label="RS website 3D model (TraceParts)")
     ax.plot([], [], "b-", label=f"{part}.py")
-    ax.set_title(f"{p['title']} - axial section\n{(~skip).sum()} vendor vertices: "
-                 f"max deviation {dev.max():.2f} mm, mean {dev.mean():.3f} mm")
+    ax.set_title(
+        f"{p['title']} - axial section\n{(~skip).sum()} vendor vertices: "
+        f"max deviation {dev.max():.2f} mm, mean {dev.mean():.3f} mm"
+    )
     ax.set_aspect("equal")
     ax.grid(alpha=0.3)
     ax.legend(loc="lower right")
