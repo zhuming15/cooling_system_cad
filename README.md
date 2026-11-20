@@ -106,6 +106,7 @@ valve_clamp/           valve clamp base + cap, shared constants and hardware
                        + rs_2838289_clamp_base.step, rs_2838289_clamp_cap.step   (3D print)
 tools/render.py        PNG renders (assembly + component sheet)
 tools/view.py          send the model to the OCP CAD Viewer
+tools/dims.py          dimension annotations measured from the placed parts
 tools/cad_compare.py   compare a connector with the RS-website 3D model
 tools/drawing_check.py overlay the flowmeter model on its datasheet drawing
 output/                generated: assembly.step, assembly.png, components.png
@@ -133,8 +134,8 @@ The checks cover:
 1. Interference between every pair of parts.
 2. Valve clamp: the cap closes onto the valve before reaching the base (after
    print tolerance), anti-rotation, slip resistance and pressure on the PETG.
-3. Wall mounting: nothing behind the wall plane, and a straight hex-key path to
-   all 16 screws.
+3. Wall mounting: nothing behind the wall plane, and a straight hex-key path
+   from the front to the 8 wall screws and the 8 cap and strap screws.
 4. Valve operator access: knob grip, finger room, line of sight, and room to
    press the release collars.
 5. Valve connector mating: thread engagement, alignment with the ports, tubes
@@ -257,6 +258,18 @@ The table shows what was checked against a primary source (checked
 7. Push the inlet and outlet tubes into place. Keep at least 100 mm of
    straight inlet tube ahead of the meter, and support the tubes beyond the
    station. Run the system at **6 bar or less** with water at 0–40 °C.
+
+### Tight margins
+
+These pass, but with little room. Watch them when you change the design:
+
+- Worst-case link-tube strain is 0.45 %, against the 0.5 % limit.
+- The valve clamp base resists tipping under a 500 N tube pull by only
+  × 1.17.
+- The clamp-base M4 torque has a narrow window. At 0.15 N·m the valve base
+  can tip; at 0.3 N·m the nut overloads the acrylic. Use 0.2 N·m.
+- Contact pressures are close to the estimated allowables: washer on PETG
+  12.7 MPa (limit 15), nut on acrylic 9.4 MPa (limit 10).
 
 ## Tests to do on real parts
 
