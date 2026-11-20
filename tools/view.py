@@ -51,17 +51,23 @@ def wall(parts):
 def exploded(parts):
     """Offset each group along its assembly direction (+Y out of the wall)."""
     step = {
-        "clamp_base": 0,
+        "base_": 0,
+        "dowel": 20,
+        "m4_nut": -25,
+        "m4_mount": 30,
+        "m4_insert": 30,
+        "valve_clamp_base": 20,
+        "fm_clamp_base": 20,
+        "valve_clamp_cap": 110,
+        "fm_clamp_strap": 110,
+        "m4_washer": 140,
+        "m4_cap": 150,
         "wall_screw": -25,
         "valve": 45,
         "fitting": 45,
         "flowmeter": 45,
         "qsf": 45,
         "tube": 45,
-        "clamp_cap": 95,
-        "fm_clamp": 95,
-        "m5": 140,
-        "m4": 140,
     }
     # fittings and their tubes also move outward along the flow axis, away
     # from the body they screw into (valve at X = 0, flowmeter at A.X_FM)
@@ -157,8 +163,8 @@ def main() -> None:
         single = {
             "valve": ("valve", V.make_valve()),
             "connector": ("fitting", F.make_fitting()),
-            "base": ("clamp_base", C.make_base()),
-            "cap": ("clamp_cap", C.make_cap_unclamped()),
+            "base": ("valve_clamp_base", C.make_base()),
+            "cap": ("valve_clamp_cap", C.make_cap_unclamped()),
         }[a.what]
         names, objs, alphas = [single[0]], [single[1]], [1.0]
 

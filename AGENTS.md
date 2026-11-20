@@ -15,21 +15,25 @@ then a straight link tube, then the flow control valve, all on one wall base.
 - `valve_connector/valve_connector.py`: SMC KQ2H12-U02A push-in fitting.
   Dimensions come from the SMC catalogue and are checked against the RS-website
   3D model (max deviation 0.07 mm).
-- `valve_clamp/clamp.py`: the valve cradle (`make_base`), the valve cap, and
-  the shared constants (`AXIS_Y`, screw sizes). Its base is no longer
-  machined on its own; it is merged into the station base.
-- `flowmeter_clamp/flowmeter_clamp.py`: the flowmeter straps, which grip the
-  round Ø20.8 bodies of the QSF fittings (never the hexes), the locating pad
-  under the meter's spanner flat, and `make_station_base()`. That function builds the
-  one-piece wall plate carrying both cradles, which keeps the link tube
-  coaxial.
+- `valve_clamp/clamp.py`: the valve clamp module (printed clamp base
+  `make_base` + cap) and the shared constants and helpers: `AXIS_Y`, process
+  tolerances and plastic allowables, M4 / insert / dowel hardware,
+  `make_hardware()`, `base_holes()`, `cap_holes()`.
+- `flowmeter_clamp/flowmeter_clamp.py`: the flowmeter clamp module (one
+  printed base with both pedestals, the bar and the locating pad; two straps
+  that grip the round Ø20.8 QSF bodies, never the hexes) and
+  `make_station_base()`: the laser-cut station plate (wall layer + front
+  layer, holes only).
+- **The clamps are modules on a plain station base.** Each printed clamp
+  base is located on the plate by 2 dowel pins and fixed by 2 × M4 from the
+  front into captive nuts; its clamp head screws into heat-set inserts in it.
 - `flowmeter/flowmeter.py`: ifm SV3051 vortex flowmeter. Its main dimensions
   come from the ifm datasheet drawing, and its envelope is checked against
   ifm's own STEP model. No display is modelled (the user confirmed there is none).
 - `flowmeter_connector/flowmeter_connector.py`: Festo QSF-1/2-12-B, a G1/2
   female push-in fitting. Dimensions come from the Festo catalogue and are
   checked against the RS-website 3D model (max deviation 0.01 mm).
-- `assembly.py`: places every part of the station, runs 52 design checks, and writes
+- `assembly.py`: places every part of the station, runs 66 design checks (about 1 minute), and writes
   `output/assembly.step` and `output/assembly.png`.
 - `tools/render.py` writes the PNG renders. `tools/view.py` sends the model to
   the OCP CAD Viewer.
@@ -44,8 +48,8 @@ then a straight link tube, then the flow control valve, all on one wall base.
 uv sync                                   # deps (build123d, matplotlib, ocp-vscode, ruff)
 uv run python assembly.py                 # MUST print "ALL CHECKS PASS" (exit 0)
 uv run python tools/render.py             # output/assembly.png + output/components.png
-uv run python flowmeter_clamp/flowmeter_clamp.py  # station base + strap STEP (machining)
-uv run python valve_clamp/clamp.py        # valve cap STEP (likewise for the bought-in parts)
+uv run python flowmeter_clamp/flowmeter_clamp.py  # plate DXF/STEP + flowmeter clamp STEP
+uv run python valve_clamp/clamp.py        # valve clamp STEP (likewise for the bought-in parts)
 uv run python tools/view.py [assembly|exploded|parts|valve|connector|base|cap|
                             flowmeter|flowmeter_connector|flowmeter_fitted]
 uv run python tools/cad_compare.py <valve_connector|flowmeter_connector> <vendor _000.bin>
@@ -105,7 +109,9 @@ Don't treat that as a code bug; the user has to start the viewer.
   `assembly.phase_sweep()` spins every fitting through 60° and must stay
   clash-free.
 - **Link-tube alignment is a hard requirement** from the user: no offset, no
-  bend, no axial strain. Keep both cradles in the one-piece station base, and
+  bend, no axial strain. Locate every clamp base by dowels in the one
+  station-plate front layer (`base_front`), keep both flowmeter pedestals in
+  one printed base, and
   keep the valve and flowmeter pocket clearances equal so that
   `clamp.VALVE_Y == flowmeter_clamp.FM_Y`. Derive the tube length from the two
   tube stops; never hard-code it.
@@ -127,14 +133,26 @@ Don't treat that as a code bug; the user has to start the viewer.
   as interference. Don't model helical threads.
 - **The cap is modelled at two positions.** `make_cap()` is the clamped
   position used in the assembly; it sits `CAP_DROP` lower than the free
-  position. `make_cap_unclamped()` is the as-machined position used for
-  export. The 0.5 mm `SPLIT_GAP` must stay larger than `CAP_DROP`, otherwise
-  the cap bottoms on the base instead of clamping the valve.
+  position. `make_cap_unclamped()` is the as-printed position used for
+  export. The 1.0 mm `SPLIT_GAP` must stay larger than `CAP_DROP` plus
+  2 × `PRINT_TOL`, otherwise a printed cap can bottom on its base instead of
+  clamping the valve. The flowmeter straps work the same way.
+- **Assembly order is a check.** `assembly.ASSEMBLY_ORDER` lists the README
+  assembly steps; section 11 sweeps each one into place. If you add a part,
+  put it in a step, or the check fails. The link tube goes in with the bench
+  unit because it is cut stop-to-stop.
+- **Plastic parts.** Clamp blocks are printed (PETG), the station plate is
+  laser-cut acrylic. Keep contact pressures under `PRINT_P_ALLOW` /
+  `ACRYLIC_P_ALLOW` and torques low. Tolerances, allowables and friction are
+  estimates; say so if you change them. Screws go into heat-set inserts
+  (printed parts) or captive nuts (plate), never into tapped plastic.
 - **Part names in `assembly.build()`** are used by the checks, by the colour
   lookup in `tools/render.py`, and by the exploded view in `tools/view.py`.
   Examples: `valve_knob`, `fitting_A`, `qsf_body_out`, `tube_link`,
-  `clamp_base`, `fm_clamp_strap_0`, `m5_screw_*`, `wall_screw_*`. Renaming a
-  part means updating all three.
+  `base_front`, `valve_clamp_base`, `valve_clamp_cap`, `fm_clamp_base`,
+  `fm_clamp_strap_0`, `m4_cap_screw_*`, `m4_mount_screw_*`, `m4_nut_*`,
+  `m4_insert_*`, `dowel_*`, `wall_screw_*`. Renaming a part means updating
+  all three, plus `tools/dims.py`.
 
 ## Data provenance (important)
 

@@ -37,9 +37,10 @@ COLORS = {
     "valve_scale": "#2f5fd0",
     "fitting": "#d9c27a",
     "tube": "#3b82c4",
-    "clamp_base": "#8fa3b8",
-    "clamp_cap": "#a7b9cc",
-    "m5": "#303030",
+    "base_": "#cfdbe6",
+    "valve_clamp": "#8fa3b8",
+    "dowel": "#909090",
+    "m4_insert": "#c8a64a",
     "m4": "#303030",
     "wall_screw": "#505050",
     "wall": "#efe6cf",
@@ -159,32 +160,36 @@ def render_components(path: Path) -> None:
             None,
         ),
         (
-            "Station base - one piece, valve + flowmeter cradles (6061-T6)",
-            [(FCL.make_station_base(A.X_FM, -A.FLOW_DIR), COLORS["clamp_base"])],
+            "Station base - laser-cut acrylic, 2 x 6 mm layers, holes only",
+            [(v, COLORS["base_"]) for v in FCL.make_station_base(A.X_FM).values()],
             (25, 60),
             (25, 230),
             None,
         ),
         (
-            "Clamp cap (6061-T6)",
-            [(C.make_cap_unclamped(), COLORS["clamp_cap"])],
+            "Valve clamp base + cap (3D printed PETG), dowels, inserts, M4",
+            [(C.make_base(), COLORS["valve_clamp"]), (C.make_cap(), COLORS["valve_clamp"])]
+            + [
+                (s, color_of(f"m4_{k}" if k != "dowel" else "dowel"))
+                for k, v in C.make_hw().items()
+                for s in v
+            ],
             (25, 50),
             (-35, 250),
             None,
-        ),
-        (
-            "Clamp screws ISO 4762 M5x25 (x4, as fitted)",
-            [(s, COLORS["m5"]) for s in C.make_m5_screws()],
-            (25, 50),
-            (0, 0),
-            1,
         ),
         ("Flowmeter - ifm SV3051 (G1/2 male, 0.5-10 l/min)", flowmeter, (25, -60), (0, -90), None),
         ("Flowmeter connector - Festo QSF-1/2-12-B (x2)", qsf, (25, 40), (0, 0), None),
         ("Flowmeter with 2 x QSF-1/2-12-B fitted", fitted, (25, -60), (0, -90), None),
         (
-            "Flowmeter strap (x2, 6061-T6)",
-            [(FCL.make_cap_unclamped(FCL.STRAP_X), COLORS["fm_clamp"])],
+            "Flowmeter clamp base + 2 straps (3D printed PETG), dowels, inserts, M4",
+            [(FCL.make_base(A.X_FM, -A.FLOW_DIR), COLORS["fm_clamp"])]
+            + [(s, COLORS["fm_clamp"]) for s in FCL.make_caps(A.X_FM)]
+            + [
+                (s, color_of(f"m4_{k}" if k != "dowel" else "dowel"))
+                for k, v in FCL.make_hw(A.X_FM).items()
+                for s in v
+            ],
             (25, 50),
             (-35, 250),
             None,

@@ -35,11 +35,12 @@ GROUPS = {
     "fitting_A": ("valve_fitting", "Valve fitting SMC KQ2H12-U02A (x2)"),
     "flowmeter_": ("flowmeter", "Flowmeter ifm SV3051"),
     "qsf_": ("flowmeter_fitting", "Flowmeter fitting Festo QSF-1/2-12-B (x2)"),
-    "clamp_base": ("station_base", "Station base (6061-T6)"),
-    "clamp_cap": ("valve_cap", "Valve clamp cap (6061-T6)"),
-    "fm_clamp_strap_0": ("fm_strap", "Flowmeter strap (x2, 6061-T6)"),
-    "m5_screw_0": ("m5_screw", "M5x25 ISO 4762 (x4)"),
-    "m4_screw_0": ("m4_screw", "M4x25 ISO 4762 (x4)"),
+    "base_front": ("station_base", "Station base, front layer (6 mm acrylic, laser)"),
+    "valve_clamp_base": ("valve_clamp_base", "Valve clamp base (PETG, printed)"),
+    "valve_clamp_cap": ("valve_clamp_cap", "Valve clamp cap (PETG, printed)"),
+    "fm_clamp_base": ("fm_clamp_base", "Flowmeter clamp base (PETG, printed)"),
+    "fm_clamp_strap_0": ("fm_strap", "Flowmeter strap (x2, PETG, printed)"),
+    "m4_cap_screw_0": ("m4_screw", "M4x20 ISO 4762 (cap)"),
     "wall_screw_0": ("wall_screw", "M6 wall screw (x8)"),
     "tube_link": ("tube_link", "Tube 12x8, link (cut length)"),
     "tube_in": ("tube_in", "Tube 12x8, inlet straight run"),
@@ -56,7 +57,11 @@ def part_groups(parts: dict) -> dict[str, dict]:
     out: dict[str, dict] = {}
     for key, (group, title) in GROUPS.items():
         if key.endswith("_"):
-            sel = {n: s for n, s in parts.items() if n.startswith(key) and not n.endswith("_in")}
+            sel = {
+                n: s
+                for n, s in parts.items()
+                if n.startswith(key) and not n.endswith("_in") and "_clamp" not in n
+            }
         else:
             sel = {key: parts[key]}
         out[group] = {"title": title, "solids": sel}
