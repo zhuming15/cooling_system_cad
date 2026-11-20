@@ -1,0 +1,30 @@
+[project]
+name = "flow"
+version = "0.1.0"
+description = "Wall-mounted clamp for an RS 283-8289 flow control valve with SMC KQ2H12-U02A push-in fittings (build123d CAD)"
+readme = "README.md"
+authors = [
+    { name = "zhuming15", email = "e0735464@u.nus.edu" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "bd-warehouse>=0.4.0",
+    "build123d>=0.13.0",
+    "matplotlib>=3.11.2",
+    "ocp-viewer>=1.2.0",
+    "ocp-vscode>=4.2.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.17.6",
+]
+
+[tool.uv]
+package = false   # plain CAD scripts, nothing to install
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint.isort]
+known-first-party = ["assembly", "clamp", "tools", "valve", "valve_connector"]

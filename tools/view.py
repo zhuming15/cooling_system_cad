@@ -1,0 +1,134 @@
+"""Send the model to the OCP CAD Viewer.
+
+Start the viewer first, either:
+  * VS Code: "OCP CAD Viewer" extension -> open its viewer pane, or
+  * standalone:  uv run python -m ocp_vscode   (then open http://127.0.0.1:3939/viewer)
+
+Then:
+  uv run python tools/view.py              # full wall-mounted assembly (default)
+  uv run python tools/view.py parts        # every component laid out side by side
+  uv run python tools/view.py exploded     # assembly pulled apart along the build order
+  uv run python tools/view.py valve | connector | base | cap
+  uv run python tools/view.py flowmeter | flowmeter_connector | flowmeter_fitted
+  add --port 3940 if the viewer runs on another port
+"""
+
+import argparse
+import sys
+from pathlib import Path
+
+from build123d import Box, Pos, Rot
+from ocp_vscode import Camera, set_port, show
+
+ROOT = Path(__file__).resolve().parents[1]
+for sub in ("", "valve", "valve_connector", "valve_clamp", "flowmeter", "flowmeter_connector",
+            "flowmeter_clamp"):
+    sys.path.insert(0, str(ROOT / sub))
+
+import assembly as A
+import clamp as C
+import flowmeter as FM
+import flowmeter_connector as FC
+import valve as V
+import valve_connector as F
+from tools.render import color_of, split_knob
+
+
+def wall(parts):
+    bb = None
+    for p in parts.values():
+        bb = p.bounding_box() if bb is None else bb.add(p.bounding_box())
+    return Pos(bb.center().X, -5, 0) * Box(bb.size.X + 40, 10, 160)
+
+
+def exploded(parts):
+    """Offset each group along its assembly direction (+Y out of the wall)."""
+    step = {"clamp_base": 0, "wall_screw": -25, "valve": 45, "fitting": 45, "flowmeter": 45,
+            "qsf": 45, "tube": 45, "clamp_cap": 95, "fm_clamp": 95, "m5": 140, "m4": 140}
+    # fittings and their tubes also move outward along the flow axis, away
+    # from the body they screw into (valve at X = 0, flowmeter at A.X_FM)
+    side = {"fitting": (25, 0.0), "tube_out": (60, 0.0),
+            "qsf": (25, A.X_FM), "tube_in": (60, A.X_FM)}
+    out = {}
+    for n, p in parts.items():
+        dy = next(v for k, v in step.items() if n.startswith(k))
+        dx = 0.0
+        for k, (mag, ref) in side.items():
+            if n.startswith(k):
+                dx = mag if p.bounding_box().center().X > ref else -mag
+        out[n] = Pos(dx, dy, 0) * p
+    return out
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("what", nargs="?", default="assembly",
+                    choices=["assembly", "parts", "exploded", "valve", "connector", "base", "cap",
+                             "flowmeter", "flowmeter_connector", "flowmeter_fitted"])
+    ap.add_argument("--port", type=int, default=3939)
+    a = ap.parse_args()
+    import socket
+
+    with socket.socket() as s:
+        s.settimeout(1)
+        if s.connect_ex(("127.0.0.1", a.port)) != 0:
+            sys.exit(f"No OCP viewer on port {a.port}. Start it first:\n"
+                     "  uv run python -m ocp_vscode   (opens http://127.0.0.1:3939/viewer)\n"
+                     "  or open the OCP CAD Viewer pane in VS Code.")
+    set_port(a.port)
+
+    if a.what in ("assembly", "exploded"):
+        parts = split_knob(A.build())
+        if a.what == "exploded":
+            parts = exploded(parts)
+        names, objs = list(parts), list(parts.values())
+        names.append("wall"), objs.append(wall(parts))
+        alphas = [1.0] * (len(objs) - 1) + [0.25]
+    elif a.what == "parts":
+        # every part once, laid out in a row, each with its dimensions
+        from tools.dims import dimensions, part_groups
+
+        groups = part_groups(A.build())
+        names, objs, alphas, x = [], [], [], 0.0
+        for gname, g in groups.items():
+            sols = list(g["solids"].values())
+            bb = sols[0].bounding_box()
+            for sol in sols[1:]:
+                bb = bb.add(sol.bounding_box())
+            move = Pos(x - bb.min.X, -bb.min.Y, -bb.center().Z)
+            for n, sol in g["solids"].items():
+                names.append(f"{gname}/{n}"), objs.append(move * sol), alphas.append(1.0)
+            for i, d in enumerate(dimensions(gname, g)):
+                names.append(f"{gname}/dim_{i}"), objs.append(move * d), alphas.append(1.0)
+            x += bb.size.X + 40
+    elif a.what.startswith("flowmeter"):
+        layout = {}
+        if a.what != "flowmeter_connector":
+            layout |= {f"flowmeter_{n}": s for n, s in FM.make_flowmeter_parts().items()}
+        qsf = {f"qsf_{n}": s for n, s in FC.make_fitting_parts().items()}
+        if a.what == "flowmeter_connector":
+            layout |= qsf
+        elif a.what == "flowmeter_fitted":
+            x_face = FM.L_TOTAL / 2 - FM.THREAD_L
+            for side, sgn in (("outlet", -1), ("inlet", 1)):
+                place = Pos(sgn * x_face, 0, 0) * Rot(0, sgn * 90, 0)
+                layout |= {f"{n}_{side}": place * s for n, s in qsf.items()}
+        names, objs = list(layout), list(layout.values())
+        alphas = [1.0] * len(objs)
+    else:
+        single = {
+            "valve": ("valve", V.make_valve()),
+            "connector": ("fitting", F.make_fitting()),
+            "base": ("clamp_base", C.make_base()),
+            "cap": ("clamp_cap", C.make_cap_unclamped()),
+        }[a.what]
+        names, objs, alphas = [single[0]], [single[1]], [1.0]
+
+    cols = ["#202020" if "/dim_" in n else color_of(n.split("/")[-1]) for n in names]
+    show(*objs, names=names, colors=cols, alphas=alphas,
+         reset_camera=Camera.RESET)
+    print(f"Sent '{a.what}' ({len(objs)} objects) to OCP viewer on port {a.port}")
+
+
+if __name__ == "__main__":
+    main()
