@@ -105,11 +105,13 @@ valve_connector/       push-in fitting model  + smc_kq2h12-u02a.step
 valve_clamp/           valve clamp base + cap, shared constants and hardware
                        + rs_2838289_clamp_base.step, rs_2838289_clamp_cap.step   (3D print)
 tools/render.py        PNG renders (assembly + component sheet)
+tools/export_step.py   STEP of every component + the whole station -> output/step/
 tools/view.py          send the model to the OCP CAD Viewer
 tools/dims.py          dimension annotations measured from the placed parts
 tools/cad_compare.py   compare a connector with the RS-website 3D model
 tools/drawing_check.py overlay the flowmeter model on its datasheet drawing
-output/                generated: assembly.step, assembly.png, components.png
+output/                generated: assembly.step, assembly.png, components.png,
+                       step/ (one STEP per component, assembly STEP, bom.csv)
 ```
 
 ## Usage
@@ -119,6 +121,7 @@ uv sync                                  # once
 
 uv run python assembly.py                # 66 design checks (~1 min) + output/assembly.step/.png
 uv run python tools/render.py            # output/assembly.png + output/components.png
+uv run python tools/export_step.py       # output/step/: all components + assembly STEP, bom.csv
 
 uv run python flowmeter_clamp/flowmeter_clamp.py   # plate DXF + flowmeter clamp STEP
 uv run python valve_clamp/clamp.py                 # valve clamp base + cap STEP

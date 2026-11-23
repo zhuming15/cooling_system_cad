@@ -35,6 +35,11 @@ then a straight link tube, then the flow control valve, all on one wall base.
   checked against the RS-website 3D model (max deviation 0.01 mm).
 - `assembly.py`: places every part of the station, runs 66 design checks (about 1 minute), and writes
   `output/assembly.step` and `output/assembly.png`.
+- `tools/export_step.py` writes `output/step/`: the whole station as a named,
+  coloured STEP assembly tree, one STEP per distinct component, and
+  `bom.csv` with quantities counted from `assembly.build()`. It fails if an
+  assembly part has no sub-assembly or no component file, so a new part needs
+  an entry in its `SUBASSEMBLIES`, `components()` and `QTY_PATTERN`.
 - `tools/render.py` writes the PNG renders. `tools/view.py` sends the model to
   the OCP CAD Viewer. `tools/dims.py` builds dimension annotations measured
   from the placed parts.
@@ -49,6 +54,7 @@ then a straight link tube, then the flow control valve, all on one wall base.
 uv sync                                   # deps (build123d, matplotlib, ocp-vscode, ruff)
 uv run python assembly.py                 # MUST print "ALL CHECKS PASS" (exit 0)
 uv run python tools/render.py             # output/assembly.png + output/components.png
+uv run python tools/export_step.py        # output/step/: per-component + assembly STEP, bom.csv
 uv run python flowmeter_clamp/flowmeter_clamp.py  # plate DXF/STEP + flowmeter clamp STEP
 uv run python valve_clamp/clamp.py        # valve clamp STEP (likewise for the bought-in parts)
 uv run python tools/view.py [assembly|exploded|parts|valve|connector|base|cap|
@@ -153,7 +159,7 @@ Don't treat that as a code bug; the user has to start the viewer.
   `base_front`, `valve_clamp_base`, `valve_clamp_cap`, `fm_clamp_base`,
   `fm_clamp_strap_0`, `m4_cap_screw_*`, `m4_mount_screw_*`, `m4_nut_*`,
   `m4_insert_*`, `dowel_*`, `wall_screw_*`. Renaming a part means updating
-  all three, plus `tools/dims.py`.
+  all three, plus `tools/dims.py` and `tools/export_step.py`.
 
 ## Data provenance (important)
 

@@ -24,7 +24,7 @@ import itertools
 import sys
 from pathlib import Path
 
-from build123d import Align, Compound, Location, Pos, Rot, Solid, export_step
+from build123d import Align, Location, Pos, Rot, Solid, export_step
 
 ALIGN_MIN = (Align.CENTER, Align.CENTER, Align.MIN)
 
@@ -1046,11 +1046,10 @@ def main() -> int:
     fails = verify(parts)
     OUTPUT.mkdir(exist_ok=True)
     out = OUTPUT / "assembly.step"
-    asm = Compound(children=[p for p in parts.values()], label="flow_station_assembly")
-    for child, name in zip(asm.children, parts):
-        child.label = name
-    export_step(asm, str(out))
+    from tools.export_step import assembly_compound
     from tools.render import render_assembly
+
+    export_step(assembly_compound(parts), str(out))  # named, coloured sub-assembly tree
 
     render_assembly(parts, OUTPUT / "assembly.png")
     print(f"\nExported {out.relative_to(ROOT)}, output/assembly.png")
