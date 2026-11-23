@@ -309,6 +309,8 @@ def presets() -> dict[str, dict]:
     import valve_connector as VC
 
     g12_r = FC.THREAD_MAJOR_D / 2 + 0.05
+    h, x_sh = FM.L_TOTAL / 2, FM.L_TOTAL / 2 - FM.THREAD_L  # meter end face, shoulder
+    r_bore, af = FM.END_BORE_D / 2, FM.SPANNER_AF / 2
     # QSF round body between hex and release ring, in the fitting frame (Z = L - v)
     round_z = (FC.L_TOTAL - FC.BODY_PROFILE[-1][1], FC.L_TOTAL - FC.BODY_PROFILE[2][1])
     return {
@@ -370,55 +372,40 @@ def presets() -> dict[str, dict]:
             "title": "ifm SV3051 (vs ifm STEP CAD_STP_300_0358)",
             "part": "flowmeter:make_flowmeter",
             # ifm frame: length along X (centre 24.1), housing DOWN (-Y), pipe axis at
-            # Y = 52.73 - 10.48, inlet (M12 end) at X = -14.4: our X -> -X, our Z -> -Y
-            "to_vendor": f"plane(({FM.L_TOTAL / 2 - 14.4}, {FM.H_TOTAL - FM.THREAD_D / 2}, 0),"
-            " (-1, 0, 0), (0, -1, 0))",
+            # Y = 42.25 (= Z_TOP), inlet (M12 end) at X = -14.4: our X -> -X, our Z -> -Y
+            "to_vendor": f"plane(({FM.L_TOTAL / 2 - 14.4}, {FM.Z_TOP}, 0), (-1, 0, 0), (0, -1, 0))",
             "section_axis": 2,
+            # no skip zones: ifm models the G1/2 thread at its major dia, as we do
             "zones": [
-                {  # ifm: thread surface at r 9.27 (near the minor dia); ours: cosmetic, major
-                    "name": "G1/2 male thread (vendor near minor dia, ours cosmetic at major)",
-                    "kind": "skip",
-                    "cyl": ["x", 9.2, g12_r, FM.L_TOTAL / 2 - FM.THREAD_L, FM.L_TOTAL / 2 - 0.01],
+                {  # the QSF seats on the shoulder; a seal on the end face / in the groove
+                    "name": "G1/2 inlet end: shoulder, thread, lead-in, end face, groove",
+                    "kind": "fit",
+                    "cyl": ["x", r_bore + 0.05, g12_r, x_sh - 0.01, h + 0.01],
                 },
                 {
-                    "name": "G1/2 male thread, outlet (same convention)",
-                    "kind": "skip",
-                    "cyl": ["x", 9.2, g12_r, -FM.L_TOTAL / 2 + 0.01, -FM.L_TOTAL / 2 + FM.THREAD_L],
-                },
-                {  # the flat G1/2 washer (ID >= 11.5, OD <= 18.6) seals here; 1.5 deep so a
-                    # groove in the face (ifm's STEP has one) is judged too
-                    "name": "end face, inlet (sealing washer seat)",
+                    "name": "G1/2 outlet end: shoulder, thread, lead-in, end face, groove",
                     "kind": "fit",
-                    "cyl": [
-                        "x",
-                        FM.END_BORE_D / 2 + 0.05,
-                        9.2,
-                        FM.L_TOTAL / 2 - 1.5,
-                        FM.L_TOTAL / 2 + 0.01,
-                    ],
+                    "cyl": ["x", r_bore + 0.05, g12_r, -h - 0.01, -x_sh + 0.01],
                 },
                 {
-                    "name": "end face, outlet (sealing washer seat)",
+                    "name": "inlet bore dia 11.5",
                     "kind": "fit",
-                    "cyl": [
-                        "x",
-                        FM.END_BORE_D / 2 + 0.05,
-                        9.2,
-                        -FM.L_TOTAL / 2 - 0.01,
-                        -FM.L_TOTAL / 2 + 1.5,
-                    ],
+                    "cyl": ["x", r_bore - 0.05, r_bore + 0.05, x_sh, h + 0.01],
                 },
                 {
-                    "name": "spanner flats 12 AF (locating pad)",
+                    "name": "16 AF spanner hex",
                     "kind": "fit",
-                    "box": [
-                        FM.SPANNER_X[0],
-                        FM.SPANNER_X[1],
-                        -8,
-                        8,
-                        -FM.SPANNER_AF / 2 - 0.05,
-                        -FM.SPANNER_AF / 2 + 0.05,
-                    ],
+                    "cyl": ["x", FM.SPANNER_HEX_AF / 2 - 0.05, 9.3, FM.SPANNER_X[0] - 0.01, x_sh],
+                },
+                {  # the clamp's locating pad sits on the downward flat
+                    "name": "12 AF flats (locating pad)",
+                    "kind": "fit",
+                    "box": [FM.NECK_X - 0.01, x_sh, -6, 6, -af - 0.05, -af + 0.05],
+                },
+                {
+                    "name": "12 AF flats, top",
+                    "kind": "fit",
+                    "box": [FM.NECK_X - 0.01, x_sh, -6, 6, af - 0.05, af + 0.05],
                 },
             ],
             "out": "flowmeter/cad_check.png",
