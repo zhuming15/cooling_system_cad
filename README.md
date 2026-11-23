@@ -7,6 +7,16 @@ operator's side, flow runs left to right:
 inlet tube → ifm SV3051 flowmeter → straight 12 mm link tube → RS 283-8289 valve → outlet tube
 ```
 
+**[Open the whole assembly in an interactive 3D viewer](https://3dviewer.net/#model=https://raw.githubusercontent.com/zhuming15/cooling_system_cad/main/output/step/00_flow_station_assembly.step)**
+(rotate, zoom, hide parts, measure; runs in the browser, nothing to install).
+It loads `output/step/00_flow_station_assembly.step` straight from `main`, so
+it always shows the latest pushed design. Click the picture to open it too.
+
+[![Flow station assembly](output/assembly.png)](https://3dviewer.net/#model=https://raw.githubusercontent.com/zhuming15/cooling_system_cad/main/output/step/00_flow_station_assembly.step)
+
+The viewer shows what was last pushed: after a design change, run
+`uv run python tools/export_step.py` and push `output/step/`.
+
 | Part | Source | Qty |
 |---|---|---|
 | ifm SV3051 vortex flow meter, water 0.5–10 l/min, G1/2 male | `flowmeter/flowmeter.py` | 1 |
