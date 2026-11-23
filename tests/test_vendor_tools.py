@@ -116,3 +116,20 @@ def test_compare_finds_the_misaligned_frame(tmp_path):
 
 def test_drawing_scale():
     assert DC.scale(721.1, 0, 1924.5, 0, 77) == pytest.approx(15.629, abs=1e-3)
+
+
+def test_bounding_box_pruning_preserves_surface_and_edge_distances():
+    """A nearby box may contain a point far from its curved face; do not stop early."""
+    from build123d import Compound, Vector
+
+    shape = (Box(20, 20, 10) - Cylinder(3, 20)) + Pos(14, 0, 0) * Cylinder(2, 10)
+    points = np.array(
+        [[0, 0, 0], [3, 0, 0], [3.05, 0, 0], [14, 0, 0], [11, 0, 0], [30, 20, 12]], dtype=float
+    )
+    for pieces in (shape.faces(), shape.edges()):
+        reference = Compound(pieces)
+        expected = [reference.distance_to(Vector(*p)) for p in points]
+        assert CC.distances_to_shapes(points, pieces) == pytest.approx(expected, abs=1e-7)
+    distances = CC.distances_to_shapes(points, shape.faces())
+    assert distances[1] < CC.FIT_TOL  # exact surface passes
+    assert distances[2] > CC.FIT_TOL  # displaced surface still fails

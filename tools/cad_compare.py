@@ -170,6 +170,36 @@ def point_triangle_distance(p: np.ndarray, tris: np.ndarray) -> np.ndarray:
     return out
 
 
+def distances_to_shapes(points: np.ndarray, shapes, progress: bool = False) -> np.ndarray:
+    """Exact OCCT distance, pruning faces/edges by conservative bounding boxes.
+
+    A box's distance is a lower bound on distance to its shape. Only shapes
+    whose box could improve the current minimum need an OCCT query. This
+    changes neither sampling nor acceptance thresholds.
+    """
+    from build123d import Vector
+
+    shapes = list(shapes)
+    boxes = [s.bounding_box() for s in shapes]
+    low = np.array([tuple(b.min) for b in boxes]) - 1e-7
+    high = np.array([tuple(b.max) for b in boxes]) + 1e-7
+    distances = []
+    for n, p in enumerate(points):
+        lower = np.linalg.norm(np.maximum(np.maximum(low - p, p - high), 0), axis=1)
+        best = float("inf")
+        point = Vector(*p)
+        for i in np.argsort(lower):
+            if lower[i] > best:
+                break
+            best = min(best, shapes[i].distance_to(point))
+            if best < 1e-9:
+                break
+        distances.append(best)
+        if progress and (n + 1) % 5000 == 0:
+            print(f"  {n + 1}/{len(points)} exact distances", flush=True)
+    return np.array(distances)
+
+
 def zone_of(pts: np.ndarray, zones: list[dict]) -> np.ndarray:
     """Index of the first zone each point (our frame) falls in; -1 = envelope."""
     idx = np.full(len(pts), -1)
@@ -420,7 +450,7 @@ def compare(spec: dict, vendor_path: Path, quiet: bool = False) -> dict:
     """Run the comparison; returns {zone name: (kind, n, max, mean, limit, ok)} and 'pass'."""
     import importlib
 
-    from build123d import Compound, Vector
+    from build123d import Compound
 
     mod, fn = spec["part"].split(":")
     ours = getattr(importlib.import_module(mod), fn)()
@@ -441,7 +471,9 @@ def compare(spec: dict, vendor_path: Path, quiet: bool = False) -> dict:
     vv = np.unique(vendor_tris.reshape(-1, 3).round(6), axis=0)
     if len(vv) > MAX_POINTS:  # fixed seed: the same subset every run
         vv = vv[np.random.default_rng(0).choice(len(vv), MAX_POINTS, replace=False)]
-    dev_v = np.array([ours_skin.distance_to(Vector(*q)) for q in vv])
+    if not quiet:
+        print(f"Comparing {len(vv)} vendor surface points...", flush=True)
+    dev_v = distances_to_shapes(vv, ours_skin.faces())
     zone_v = zone_of(apply(m_inv, vv), zones)
     # A B-rep vendor model often carries internal detail (sockets, hollow housings,
     # bores) that an envelope model leaves solid. In envelope areas, vendor points
@@ -450,18 +482,34 @@ def compare(spec: dict, vendor_path: Path, quiet: bool = False) -> dict:
     internal = np.zeros(len(vv), bool)
     if vendor_solid is not None:
         env = zone_v == -1
-        internal[env] = [ours_v.is_inside(Vector(*q)) for q in vv[env]]
+        from OCP.BRepClass3d import BRepClass3d_SolidClassifier
+        from OCP.gp import gp_Pnt
+        from OCP.TopAbs import TopAbs_IN
 
+        classifier = BRepClass3d_SolidClassifier(ours_v.wrapped)
+
+        def inside(q):
+            classifier.Perform(gp_Pnt(*q), 1e-6)
+            return classifier.State() == TopAbs_IN or classifier.IsOnAFace()
+
+        internal[env] = [inside(q) for q in vv[env]]
+
+    if not quiet:
+        print("Comparing model surface points...", flush=True)
     # ours -> vendor
     our_tris = tessellate(ours_v, 0.01)
     ov = np.unique(our_tris.reshape(-1, 3).round(6), axis=0)
     if vendor_solid is not None:
-        vendor_skin = Compound(vendor_solid.faces())
-        dev_o = np.array([vendor_skin.distance_to(Vector(*q)) for q in ov])
+        # Preserve the exact sampled points but compute distances in the part
+        # frame: aligned boxes prune far more faces than an oblique STEP frame.
+        vendor_skin = Compound(vendor_solid.moved(to_v.inverse()).faces())
+        dev_o = distances_to_shapes(apply(m_inv, ov), vendor_skin.faces(), progress=not quiet)
     else:
         dev_o = point_triangle_distance(ov, vendor_tris)
     zone_o = zone_of(apply(m_inv, ov), zones)
 
+    if not quiet:
+        print(f"Compared {len(ov)} model points; checking feature edges...", flush=True)
     # feature edges (fit zones only): a mesh carries exact information only at its
     # vertices, which sit on its edges. A bore 0.05 too big leaves its edge vertices
     # on our end face (surface distance 0), but 0.05 from our bore's edge.
@@ -474,7 +522,7 @@ def compare(spec: dict, vendor_path: Path, quiet: bool = False) -> dict:
     in_fit = np.isin(zone_e, fit_keys)
     our_edges = feature_edges(ours_v)
     dev_e = np.full(len(ve), np.nan)
-    dev_e[in_fit] = [our_edges.distance_to(Vector(*q)) for q in ve[in_fit]]
+    dev_e[in_fit] = distances_to_shapes(ve[in_fit], our_edges.edges())
 
     result, ok_all = {}, True
     names = [z["name"] for z in zones] + ["envelope (everything else)"]
