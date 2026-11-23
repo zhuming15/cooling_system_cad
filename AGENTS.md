@@ -65,7 +65,7 @@ then a straight link tube, then the flow control valve, all on one wall base.
   on its datasheet drawing (preset `flowmeter`) and has `grid` / `scale` modes
   for reading a drawing's scale. `tools/fetch_rs_cad.py` unpacks an RS 3D
   viewer zip. All need vendor files kept in a scratch directory.
-- `.claude/skills/`: project skills. `model-component` models a bought-in
+- `.agents/skills/` (symlinked as `.claude/skills/`): project skills. `model-component` models a bought-in
   part from its vendor sources; `design-component` designs a made part from
   requirements (requirements, concepts, DFMEA, checks, DVP&R, manufacturing
   rules in `design-component/manufacturing.md`). Follow them for that work.
