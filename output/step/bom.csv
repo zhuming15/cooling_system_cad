@@ -1,0 +1,21 @@
+file,component,qty,make,frame
+01_valve_rs-283-8289.step,Needle valve RS 283-8289 (Tognella FT 1251/2-01-14),1,bought-in,part-local frame (see part file docstring)
+02_valve_fitting_smc_kq2h12-u02a.step,Push-in fitting SMC KQ2H12-U02A (12 mm x G1/4),2,bought-in,part-local frame (see part file docstring)
+03_flowmeter_ifm_sv3051.step,Vortex flowmeter ifm SV3051,1,bought-in,part-local frame (see part file docstring)
+04_flowmeter_fitting_festo_qsf-1-2-12-b.step,Push-in fitting Festo QSF-1/2-12-B (12 mm x G1/2 female),2,bought-in,part-local frame (see part file docstring)
+05_station_plate_back.step,"Station plate, wall layer (acrylic, laser-cut; DXF in flowmeter_clamp/)",1,laser-cut,"as placed, moved to origin"
+06_station_plate_front.step,"Station plate, front layer (acrylic, laser-cut; DXF in flowmeter_clamp/)",1,laser-cut,"as placed, moved to origin"
+07_valve_clamp_base.step,"Valve clamp base (PETG, printed)",1,3D-printed,"as placed, moved to origin"
+08_valve_clamp_cap.step,"Valve clamp cap (PETG, printed), free position",1,3D-printed,"as placed, moved to origin"
+09_flowmeter_clamp_base.step,"Flowmeter clamp base, 2 pedestals + pad (PETG, printed)",1,3D-printed,"as placed, moved to origin"
+10_flowmeter_clamp_strap.step,"Flowmeter clamp strap (PETG, printed), free position",2,3D-printed,"as placed, moved to origin"
+11_tube_link.step,"Tube 12x8, link (cut stop-to-stop)",1,cut from tube,"as placed, moved to origin"
+12_tube_inlet.step,"Tube 12x8, inlet straight run (shown length)",1,cut from tube,"as placed, moved to origin"
+13_tube_outlet.step,"Tube 12x8, outlet stub (shown length)",1,cut from tube,"as placed, moved to origin"
+14_m4_cap_screw.step,"M4 ISO 4762 cap screw, clamp cap/strap",8,bought-in (standard),"as placed, moved to origin"
+15_m4_mount_screw.step,"M4 ISO 4762 cap screw, clamp base to plate",4,bought-in (standard),"as placed, moved to origin"
+16_m4_washer.step,M4 DIN 125 washer,8,bought-in (standard),"as placed, moved to origin"
+17_m4_insert.step,M4 heat-set insert,8,bought-in (standard),"as placed, moved to origin"
+18_m4_nut.step,M4 hex nut (captive in plate),4,bought-in (standard),"as placed, moved to origin"
+19_dowel.step,Dowel pin 4 m6 x 12,4,bought-in (standard),"as placed, moved to origin"
+20_wall_screw.step,M6 wall screw,8,bought-in (standard),"as placed, moved to origin"
