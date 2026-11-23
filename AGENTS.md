@@ -14,7 +14,7 @@ then a straight link tube, then the flow control valve, all on one wall base.
   details are scaled from Tognella's drawing.
 - `valve_connector/valve_connector.py`: SMC KQ2H12-U02A push-in fitting.
   Dimensions come from the SMC catalogue and are checked against the RS-website
-  3D model (max deviation 0.07 mm).
+  3D model (fit-critical zones and feature edges within 0.001 mm).
 - `valve_clamp/clamp.py`: the valve clamp module (printed clamp base
   `make_base` + cap) and the shared constants and helpers: `AXIS_Y`, process
   tolerances and plastic allowables, M4 / insert / dowel hardware,
@@ -30,11 +30,25 @@ then a straight link tube, then the flow control valve, all on one wall base.
 - `flowmeter/flowmeter.py`: ifm SV3051 vortex flowmeter. Its main dimensions
   come from the ifm datasheet drawing, and its envelope is checked against
   ifm's own STEP model. No display is modelled (the user confirmed there is none).
+  Against ifm's STEP (`tools/cad_compare.py flowmeter`) it does NOT yet meet
+  the model-component rule: the housing is outside the 0.5 mm envelope, the
+  end faces lack ifm's 1.2 mm deep annular groove, and the flats are 12.06
+  apart in ifm's CAD vs 12 on the datasheet. See README "Verification status".
 - `flowmeter_connector/flowmeter_connector.py`: Festo QSF-1/2-12-B, a G1/2
   female push-in fitting. Dimensions come from the Festo catalogue and are
-  checked against the RS-website 3D model (max deviation 0.01 mm).
-- `assembly.py`: places every part of the station, runs 66 design checks (about 1 minute), and writes
-  `output/assembly.step` and `output/assembly.png`.
+  checked against the RS-website 3D model (fit-critical within 0.003 mm,
+  envelope 0.01 mm).
+- `assembly.py`: places every part of the station, runs 67 design checks (about 1 minute), and writes
+  `output/assembly.step` and `output/assembly.png`. Each check section is a
+  `check_<topic>(parts, r)` function listed in `SECTIONS`.
+- `tools/checks.py`: the reusable check library (Report, interference, tool
+  access, assembly sweep, printability, wall thickness, laser profile, worst
+  case / RSS / Monte Carlo stacks, preload, pressures, tipping, wall loads).
+  Station-independent: takes solids and numbers, never part names.
+- `tests/`: pytest. `test_checks.py` and `test_vendor_tools.py` unit-test the
+  tools (each with a good and a deliberately bad case); `test_assembly.py` runs
+  every `assembly.py` section as a test, plus negative tests that break the
+  design and expect the named check to fail.
 - `tools/export_step.py` writes `output/step/`: the whole station as a named,
   coloured STEP assembly tree, one STEP per distinct component, and
   `bom.csv` with quantities counted from `assembly.build()`. It fails if an
@@ -43,24 +57,35 @@ then a straight link tube, then the flow control valve, all on one wall base.
 - `tools/render.py` writes the PNG renders. `tools/view.py` sends the model to
   the OCP CAD Viewer. `tools/dims.py` builds dimension annotations measured
   from the placed parts.
-- `tools/cad_compare.py` measures a connector model against the RS-website
-  mesh. `tools/drawing_check.py` overlays the flowmeter model on its datasheet
-  drawing. Both need vendor files kept in a scratch directory (see each
-  tool's docstring).
+- `tools/cad_compare.py` compares a part model with the vendor's 3D model
+  (RS/TraceParts mesh, STEP or STL), zone by zone: fit-critical zones must be
+  exact (<= 0.02 mm, surfaces and feature edges), the rest within 0.5 mm, skip
+  zones only for documented conventions. Presets: `valve_connector`,
+  `flowmeter_connector`, `flowmeter`. `tools/drawing_check.py` overlays a model
+  on its datasheet drawing (preset `flowmeter`) and has `grid` / `scale` modes
+  for reading a drawing's scale. `tools/fetch_rs_cad.py` unpacks an RS 3D
+  viewer zip. All need vendor files kept in a scratch directory.
+- `.claude/skills/`: project skills. `model-component` models a bought-in
+  part from its vendor sources; `design-component` designs a made part from
+  requirements (requirements, concepts, DFMEA, checks, DVP&R, manufacturing
+  rules in `design-component/manufacturing.md`). Follow them for that work.
 
 ## Commands
 
 ```bash
-uv sync                                   # deps (build123d, matplotlib, ocp-vscode, ruff)
+uv sync                                   # deps (build123d, matplotlib, ocp-vscode, ruff, pytest)
 uv run python assembly.py                 # MUST print "ALL CHECKS PASS" (exit 0)
+uv run pytest                             # MUST pass (~2 min; -m "not slow" for the quick ones)
 uv run python tools/render.py             # output/assembly.png + output/components.png
 uv run python tools/export_step.py        # output/step/: per-component + assembly STEP, bom.csv
 uv run python flowmeter_clamp/flowmeter_clamp.py  # plate DXF (laser) + flowmeter clamp sizes
 uv run python valve_clamp/clamp.py        # valve clamp sizes (likewise for the bought-in parts)
 uv run python tools/view.py [assembly|exploded|parts|valve|connector|base|cap|
                             flowmeter|flowmeter_connector|flowmeter_fitted]
-uv run python tools/cad_compare.py <valve_connector|flowmeter_connector> <vendor _000.bin>
-uv run python tools/drawing_check.py <SV3051 datasheet pdf>
+uv run python tools/cad_compare.py <preset | spec.json> <vendor _000.bin | .step | .stl>
+uv run python tools/drawing_check.py <preset | spec.json> <datasheet pdf>
+uv run python tools/drawing_check.py grid <pdf>       # pixel grid to read a drawing's scale
+uv run python tools/fetch_rs_cad.py "<presigned url>" <scratch dir>
 uv run ruff check .                       # must be clean
 ```
 
@@ -71,15 +96,18 @@ Don't treat that as a code bug; the user has to start the viewer.
 
 1. `uv run python assembly.py` passes all checks. Never weaken a threshold or
    delete a check to make a change pass. If a check is wrong, say why.
-2. When you add or change a check, prove it can fail. Build a deliberately bad
-   variant in a throwaway snippet (shift a part, shrink the pocket), confirm
-   the check reports FAIL, then discard the snippet.
+2. When you add or change a check, prove it can fail with a negative test in
+   `tests/test_assembly.py` (shift a part, loosen a tolerance, reorder the
+   build) that asserts the check's name fails. New `tools/checks.py`
+   functions get a unit test with a good and a bad case. `uv run pytest`
+   must pass.
 3. Run `tools/export_step.py` so `output/step/` is current (and the part's
    own script if it writes a DXF), then run `tools/render.py`. Look at `output/components.png` and
    `output/assembly.png`; a passing check can still hide a visibly wrong
    shape.
-4. For the flowmeter or its connector, re-run `tools/drawing_check.py` or
-   `tools/cad_compare.py`, and look at the PNG they write.
+4. For a bought-in part, re-run `tools/cad_compare.py` (and
+   `tools/drawing_check.py` where there is a drawing preset) and look at the
+   PNG they write. Fit-critical zones must stay exact.
 5. Run `ruff check .`.
 
 ## Conventions

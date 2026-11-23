@@ -20,7 +20,6 @@ Run:  uv run python assembly.py   -> design checks, output/assembly.step, output
 Exit code is non-zero if any design check fails.
 """
 
-import itertools
 import sys
 from pathlib import Path
 
@@ -48,6 +47,8 @@ import flowmeter_clamp as FCL
 import flowmeter_connector as FC
 import valve as V
 import valve_connector as F
+from tools import checks as CK
+from tools.checks import Report, min_wall, overhangs, overlap, ray_clear, sweep
 
 TUBE_LEN = 40.0  # outlet tube stub after the valve (model only)
 FLOW_DIR = -1  # system flow along -X = left -> right as the operator
@@ -81,7 +82,6 @@ ASSEMBLY_ORDER = (
         ("valve_clamp_cap", "fm_clamp_strap", "m4_washer", "m4_cap"),
     ),
 )
-# Printed parts as printed: (builder, build direction). Strap on its side: bore vertical.
 TUBE_STRAIN_MAX = 0.005  # ESTIMATE: 0.5 % bending strain, well inside PU / PA tube elasticity
 
 # Station layout along X (all derived; the link tube is exactly stop-to-stop)
@@ -94,6 +94,25 @@ X_FM = VALVE_FIT_TIP_X + UP * (LINK_FREE + QSF_REACH)  # flowmeter centre X
 QSF_STOP_X = X_FM + FLOW_DIR * (FCL.X_FACE + FC.L_TOTAL - FC.TUBE_INSERT)  # QSF outlet stop
 KQ2_STOP_X = UP * (V.BODY_L / 2 + F.TUBE_STOP_Z)  # valve inlet fitting stop
 LINK_X0, LINK_X1 = sorted((QSF_STOP_X, KQ2_STOP_X))
+
+# Link-tube axis offset between the two clamps, as tolerance terms (+/-half range,
+# sign). Z: dowel holes in the plate (laser) x2, pin play in them x2, dowel holes in
+# the printed bases x2, channel / bore position in the bases x2, valve play in its
+# square channel (the QSF centres in its round bore). Y: channel floor / bore bottom
+# above the base underside x2 (the plate face is common to both).
+_PIN = (C.DOWEL_HOLE_D - C.DOWEL_D) / 2
+ALIGN_STACK_Z = (
+    (C.CUT_TOL, 1),
+    (C.CUT_TOL, -1),
+    (_PIN, 1),
+    (_PIN, -1),
+    (C.PRINT_TOL, 1),
+    (C.PRINT_TOL, -1),
+    (C.PRINT_TOL, 1),
+    (C.PRINT_TOL, -1),
+    (C.POCKET_CLR / 2, 1),
+)
+ALIGN_STACK_Y = ((C.PRINT_TOL, 1), (C.PRINT_TOL, -1))
 
 
 # --------------------------------------------------------------------------
@@ -162,15 +181,6 @@ def make_link_tube() -> Solid:
 # --------------------------------------------------------------------------
 # Checks
 # --------------------------------------------------------------------------
-class Report:
-    def __init__(self) -> None:
-        self.fails = 0
-
-    def check(self, name: str, ok: bool, detail: str) -> None:
-        self.fails += not ok
-        print(f"  [{'PASS' if ok else 'FAIL'}] {name:<46} {detail}")
-
-
 CLAMP_PREFIXES = ("base_", "valve_clamp", "fm_clamp")
 
 
@@ -179,38 +189,30 @@ def clamp_parts(parts: dict[str, Solid]) -> list[str]:
     return [n for n in parts if n.startswith(CLAMP_PREFIXES)]
 
 
-def overlap(a: Solid, b: Solid) -> float:
-    bba, bbb = a.bounding_box(), b.bounding_box()
-    if not bba.overlaps(bbb):
-        return 0.0
-    common = a & b
-    return sum(s.volume for s in common.solids()) if common else 0.0
-
-
-def ray_clear(parts: dict[str, Solid], probe: Solid, ignore: set[str]) -> list[str]:
-    return [n for n, p in parts.items() if n not in ignore and overlap(p, probe) > 1e-3]
-
-
 def y_probe(d: float, x: float, z: float, y0: float, y1: float) -> Solid:
     return C._y_cyl(d, y1 - y0, x, y0, z)
 
 
-def verify(parts: dict[str, Solid]) -> int:
-    r = Report()
+def verify(parts: dict[str, Solid], r: Report | None = None) -> int:
+    """Run every check section in order; return the number of failures."""
+    r = r or Report()
+    for section in SECTIONS:
+        section(parts, r)
+    return r.fails
 
-    print("\n1. Interference (all part pairs)")
-    worst = []
-    for (na, a), (nb, b) in itertools.combinations(parts.items(), 2):
-        v = overlap(a, b)
-        if v > 1e-3:
-            worst.append((v, na, nb))
+
+def check_interference(parts: dict[str, Solid], r: Report) -> None:
+    r.start("1. Interference (all part pairs)")
+    worst = CK.interferences(parts)
     r.check(
         "no solid interference",
         not worst,
         "0 clashes" if not worst else "; ".join(f"{a}/{b} {v:.2f}mm3" for v, a, b in worst),
     )
 
-    print("\n2. Valve clamp (printed saddle: base + cap)")
+
+def check_valve_clamp(parts: dict[str, Solid], r: Report) -> None:
+    r.start("2. Valve clamp (printed saddle: base + cap)")
     r.check(
         "cap pocket closes onto valve before gap",
         C.CLAMP_PRELOAD_TRAVEL - 2 * C.PRINT_TOL > 0.1,
@@ -251,7 +253,9 @@ def verify(parts: dict[str, Solid]) -> int:
         f"{bearing:.1f} MPa on {contact:.0f} mm2 front-face strips (< {C.PRINT_P_ALLOW:.0f})",
     )
 
-    print("\n3. Wall mounting")
+
+def check_wall_mounting(parts: dict[str, Solid], r: Report) -> None:
+    r.start("3. Wall mounting")
     min_y = min(p.bounding_box().min.Y for n, p in parts.items() if not n.startswith("wall_screw"))
     r.check(
         "nothing but wall screws behind wall plane",
@@ -283,7 +287,9 @@ def verify(parts: dict[str, Solid]) -> int:
         "clear" if not blocked else f"blocked by {sorted(set(blocked))}",
     )
 
-    print("\n4. Operator access")
+
+def check_valve_access(parts: dict[str, Solid], r: Report) -> None:
+    r.start("4. Operator access")
     knob = parts["valve_knob"]
     kbb = knob.bounding_box()
     cap_front = parts["valve_clamp_cap"].bounding_box().max.Y
@@ -326,7 +332,9 @@ def verify(parts: dict[str, Solid]) -> int:
         f"{fit_clamp:.2f} mm fitting-to-clamp",
     )
 
-    print("\n5. Connector mating (KQ2H12-U02A into G1/4 valve ports)")
+
+def check_connectors(parts: dict[str, Solid], r: Report) -> None:
+    r.start("5. Connector mating (KQ2H12-U02A into G1/4 valve ports)")
     body_bb = parts["valve_body"].bounding_box()
     tubes = {VALVE_INLET: "tube_link", VALVE_OUTLET: "tube_out"}
     for s, sign in (("A", -1), ("B", 1)):
@@ -372,27 +380,14 @@ def verify(parts: dict[str, Solid]) -> int:
         f"hex {F.HEX_Z1 - F.HEX_Z0:.1f} mm long, starts {hex_start - C.CLAMP_L / 2:.1f} mm "
         "past the clamp end",
     )
-    verify_flowmeter(parts, r)
-    verify_modules(parts, r)
-    verify_build(parts, r)
-    return r.fails
 
 
-def verify_modules(parts: dict[str, Solid], r: "Report") -> None:
-    print("\n10. Clamp modules on the station base (printed clamps, laser-cut plate)")
+def check_modules(parts: dict[str, Solid], r: Report) -> None:
+    r.start("10. Clamp modules on the station base (printed clamps, laser-cut plate)")
     # plate layers: flat laser-cut profiles with holes only
     flat = []
     for n in ("base_back", "base_front"):
-        p = parts[n]
-        ok = abs(p.bounding_box().size.Y - C.SHEET_T) < 1e-6 and all(
-            (
-                f.geom_type.name == "PLANE"
-                and abs(abs(f.normal_at().Y) - 1) < 1e-6
-                or abs(f.normal_at().Y) < 1e-6
-            )
-            for f in p.faces()
-        )
-        flat += [] if ok else [n]
+        flat += [] if CK.is_flat_profile(parts[n], C.SHEET_T, axis=1) else [n]
     r.check(
         "station plate: 2 flat layers, holes only (laser)",
         not flat,
@@ -521,20 +516,6 @@ def verify_modules(parts: dict[str, Solid], r: "Report") -> None:
     )
 
 
-def sweep(parts, moving, installed, axis=(0.0, -1.0, 0.0), travel=60.0, step=1.0):
-    """Move `moving` into place along `axis` over `travel`; return {(moving, hit): mm}."""
-    hits, d = {}, travel
-    while d > 1e-9:
-        off = Pos(-axis[0] * d, -axis[1] * d, -axis[2] * d)
-        for m in moving:
-            sm = off * parts[m]
-            for n in installed:
-                if (m, n) not in hits and overlap(sm, parts[n]) > 1e-3:
-                    hits[(m, n)] = d
-        d -= step
-    return hits
-
-
 def printed_parts() -> dict:
     return {
         "valve_clamp_base": (C.make_base(), (0, 1, 0)),
@@ -544,73 +525,8 @@ def printed_parts() -> dict:
     }
 
 
-def overhangs(solid: Solid, build) -> tuple[list[float], list[str]]:
-    """Bridge spans (flat down-facing faces above the bed) and unsupported curved faces."""
-    import numpy as np
-
-    b = np.array(build, float)
-    bed = min(float(np.dot(b, (v.X, v.Y, v.Z))) for v in solid.vertices())
-    spans, bad = [], []
-    for f in solid.faces():
-        verts, tris = f.tessellate(0.05, 0.3)
-        if not tris:
-            continue
-        pts = np.array([(v.X, v.Y, v.Z) for v in verts])
-        t = np.array(tris)
-        n = np.cross(pts[t[:, 1]] - pts[t[:, 0]], pts[t[:, 2]] - pts[t[:, 0]])
-        n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
-        on = f.normal_at(f.center())
-        on = np.array((on.X, on.Y, on.Z))
-        n *= 1 if np.dot(n.mean(0), on) >= 0 else -1
-        height = pts[t].mean(1) @ b - bed
-        down = (n @ b < -0.7071) & (height > 0.05)
-        if not down.any():
-            continue
-        if f.geom_type.name == "PLANE" and abs(np.dot(on, b) + 1) < 1e-6:
-            bb = f.bounding_box()
-            ext = [e for e, a in zip((bb.size.X, bb.size.Y, bb.size.Z), b) if abs(a) < 0.5]
-            spans.append(min(ext))
-        elif not (f.geom_type.name == "CYLINDER" and f.radius <= HOLE_SELF_SUPPORT_R):
-            bad.append(f"{f.geom_type.name.lower()} at {tuple(round(c, 1) for c in f.center())}")
-    return spans, bad
-
-
-def min_wall(solid: Solid, per_face: int = 150) -> float:
-    """Smallest material thickness, by rays fired inward from surface points."""
-    import numpy as np
-    from build123d import Vector
-    from OCP.BRepClass3d import BRepClass3d_SolidClassifier
-    from OCP.gp import gp_Dir, gp_Lin, gp_Pnt
-    from OCP.IntCurvesFace import IntCurvesFace_ShapeIntersector
-    from OCP.TopAbs import TopAbs_IN
-
-    inter = IntCurvesFace_ShapeIntersector()
-    inter.Load(solid.wrapped, 1e-6)
-    rng, worst = np.random.default_rng(0), 1e9
-    for f in solid.faces():
-        verts, _ = f.tessellate(0.2, 0.5)
-        pts = np.array([(v.X, v.Y, v.Z) for v in verts])  # vertices lie on the surface
-        if len(pts) > per_face:
-            pts = pts[rng.choice(len(pts), per_face, replace=False)]
-        for c in pts:
-            nv = f.normal_at(Vector(*c))
-            d = -np.array((nv.X, nv.Y, nv.Z))
-            probe = BRepClass3d_SolidClassifier(solid.wrapped, gp_Pnt(*(c + 0.01 * d)), 1e-7)
-            if probe.State() != TopAbs_IN:
-                d = -d
-            p0 = c + 1e-4 * d
-            inter.Perform(gp_Lin(gp_Pnt(*p0), gp_Dir(*d)), 0.0, 1e3)
-            ws = [inter.WParameter(i) for i in range(1, inter.NbPnt() + 1)]
-            ws = [w for w in ws if w > 5e-3]
-            if ws:
-                worst = min(worst, min(ws))
-    return worst
-
-
-def verify_build(parts: dict[str, Solid], r: "Report") -> None:
-    import numpy as np
-
-    print("\n11. Build, print, service and environment")
+def check_assembly_order(parts: dict[str, Solid], r: Report) -> None:
+    r.start("11. Build, print, service and environment")
     # --- assembly order: every step moves into place without a collision ----------
     installed = [n for n in parts if n.startswith(("base_", "m4_nut", "wall_screw"))]
     clashes = []
@@ -640,6 +556,8 @@ def verify_build(parts: dict[str, Solid], r: "Report") -> None:
         + " -> fit it on the bench (bench unit), as in the assembly order"
     )
 
+
+def check_printing(parts: dict[str, Solid], r: Report) -> None:
     # --- printability ------------------------------------------------------------
     worst_span, curved, walls = 0.0, [], {}
     for name, (solid, build) in printed_parts().items():
@@ -662,32 +580,25 @@ def verify_build(parts: dict[str, Solid], r: "Report") -> None:
         ", ".join(f"{k} {v:.2f}" for k, v in walls.items()),
     )
 
+
+def check_variation(parts: dict[str, Solid], r: Report) -> None:
     # --- tolerance: statistical as well as worst case ------------------------------
-    rng = np.random.default_rng(1)
     n = 200_000
-
-    def u(t):
-        return rng.uniform(-t, t, n)
-
-    pin = (C.DOWEL_HOLE_D - C.DOWEL_D) / 2
-    dz = (
-        u(C.CUT_TOL)
-        - u(C.CUT_TOL)
-        + u(pin)
-        - u(pin)
-        + u(C.PRINT_TOL)
-        - u(C.PRINT_TOL)
-        + u(C.PRINT_TOL)
-        - u(C.PRINT_TOL)
-        + u(C.POCKET_CLR / 2)
-    )
-    dy = u(C.PRINT_TOL) - u(C.PRINT_TOL)
-    off = float(np.percentile(np.hypot(dz, dy), 99.73))
-    strain = 3 * F.TUBE_OD * off / LINK_FREE**2
+    off = CK.monte_carlo([ALIGN_STACK_Z, ALIGN_STACK_Y], n=n, seed=1)
+    strain = CK.fixed_fixed_strain(F.TUBE_OD, off, LINK_FREE)
     r.check(
         "link tube strain, Monte Carlo 99.73 %",
         strain < TUBE_STRAIN_MAX,
         f"offset {off:.2f} mm -> {100 * strain:.2f} % (uniform tolerances, {n} samples)",
+    )
+    # RSS: the usual quick statistical stack (each tolerance taken as 3 sigma, normal)
+    off_rss = (CK.rss(ALIGN_STACK_Z) ** 2 + CK.rss(ALIGN_STACK_Y) ** 2) ** 0.5
+    strain_rss = CK.fixed_fixed_strain(F.TUBE_OD, off_rss, LINK_FREE)
+    r.check(
+        "link tube strain, RSS (3 sigma)",
+        strain_rss < TUBE_STRAIN_MAX,
+        f"offset {off_rss:.2f} mm -> {100 * strain_rss:.2f} % "
+        "(normal parts; the uniform Monte Carlo above is the more pessimistic)",
     )
 
     # --- temperature: water 0..40 degC, plate at room temperature -------------------
@@ -705,8 +616,10 @@ def verify_build(parts: dict[str, Solid], r: "Report") -> None:
         f"PETG HDT {HDT_PETG:.0f} degC vs water <= 40 degC",
     )
 
+
+def check_loads(parts: dict[str, Solid], r: Report) -> None:
     # --- loads ----------------------------------------------------------------------
-    thrust = P_MAX * 3.14159 / 4 * F.TUBE_OD**2  # capped tube end, sealed on its OD
+    thrust = CK.end_thrust(P_MAX, F.TUBE_OD)  # capped tube end, sealed on its OD
     r.check(
         "line-pressure end thrust well under the 500 N design pull",
         5 * thrust <= 500,
@@ -732,10 +645,7 @@ def verify_build(parts: dict[str, Solid], r: "Report") -> None:
     weight = mass * 9.81
     # 500 N tube pull along X at the axis height turns the plate about Z: the screws on
     # the far side take it in tension, all share the shear
-    m_pull = 500 * C.AXIS_Y / 1000
-    tension = m_pull / ((max(xs) - min(xs)) / 1000) / 2
-    shear = (weight**2 + 500**2) ** 0.5 / len(screws)
-    per = (tension**2 + shear**2) ** 0.5
+    per, tension, shear = CK.wall_screw_load(weight, 500, C.AXIS_Y, max(xs) - min(xs), len(screws))
     r.check(
         "wall screws: load per M6 under a 500 N tube pull",
         per <= WALL_PLUG_MAX,
@@ -768,8 +678,8 @@ def phase_sweep(parts: dict[str, Solid], step: float = 7.5) -> tuple[list[str], 
     return hits, worst
 
 
-def verify_flowmeter(parts: dict[str, Solid], r: "Report") -> None:
-    print("\n6. Flow direction (read from the placed geometry)")
+def check_flow_direction(parts: dict[str, Solid], r: Report) -> None:
+    r.start("6. Flow direction (read from the placed geometry)")
     # SV3051: M12 connector and 12 AF flats are at the inlet end, the flow
     # arrow on the pipe points away from them (datasheet drawing).
     fm_x = parts["flowmeter_pipe"].bounding_box().center().X
@@ -796,7 +706,9 @@ def verify_flowmeter(parts: dict[str, Solid], r: "Report") -> None:
         "  [INFO] valve 283-8289 (Tognella FT 1251/2) is double-acting: either port may be the inlet"
     )
 
-    print("\n7. Link tube alignment (flowmeter outlet -> valve inlet)")
+
+def check_alignment(parts: dict[str, Solid], r: Report) -> None:
+    r.start("7. Link tube alignment (flowmeter outlet -> valve inlet)")
     a = parts["qsf_body_out"].bounding_box().center()
     b = parts[VALVE_INLET].bounding_box().center()
     t = parts["tube_link"].bounding_box()
@@ -864,16 +776,10 @@ def verify_flowmeter(parts: dict[str, Solid], r: "Report") -> None:
         f"valve {C.VALVE_Y:.3f} / flowmeter {FCL.FM_Y:.3f} mm from wall "
         f"(both pockets {C.POCKET_CLR} mm clearance, seated on cradle floor)",
     )
-    # Real parts: the axes are offset by the print and laser tolerances. Worst case:
-    # Z = dowel holes in the plate (laser) x2 + pin play in them x2 + dowel holes
-    # in the printed bases x2 + channel / bore position in the bases x2 + valve
-    # play in its square channel (the QSF centres in its round bore);
-    # Y = channel floor / bore bottom above the base underside x2 (the plate
-    # face is common to both).
-    dz = 2 * C.CUT_TOL + (C.DOWEL_HOLE_D - C.DOWEL_D) + 4 * C.PRINT_TOL + C.POCKET_CLR / 2
-    dy = 2 * C.PRINT_TOL
+    # Real parts: the axes are offset by the print and laser tolerances (ALIGN_STACK_*)
+    dz, dy = CK.worst_case(ALIGN_STACK_Z), CK.worst_case(ALIGN_STACK_Y)
     delta = (dz**2 + dy**2) ** 0.5
-    strain = 3 * F.TUBE_OD * delta / LINK_FREE**2  # fixed-fixed tube, lateral offset
+    strain = CK.fixed_fixed_strain(F.TUBE_OD, delta, LINK_FREE)  # fixed-fixed tube
     r.check(
         "link tube strain at worst-case tolerances",
         strain < TUBE_STRAIN_MAX,
@@ -886,7 +792,9 @@ def verify_flowmeter(parts: dict[str, Solid], r: "Report") -> None:
         f"+/-{FCL.AXIAL_FLOAT:.1f} mm in straps: push tube home, then tighten",
     )
 
-    print("\n8. Flowmeter clamp (grips the round QSF bodies, never the hexes)")
+
+def check_flowmeter_clamp(parts: dict[str, Solid], r: Report) -> None:
+    r.start("8. Flowmeter clamp (grips the round QSF bodies, never the hexes)")
     r.check(
         "straps close onto round body before gap",
         FCL.CLAMP_PRELOAD_TRAVEL - 2 * C.PRINT_TOL > 0.1 - 1e-9,
@@ -978,7 +886,9 @@ def verify_flowmeter(parts: dict[str, Solid], r: "Report") -> None:
         f"(< {C.PRINT_P_ALLOW:.0f})",
     )
 
-    print("\n9. Flowmeter operator access")
+
+def check_flowmeter_access(parts: dict[str, Solid], r: Report) -> None:
+    r.start("9. Flowmeter operator access")
     mb = parts["flowmeter_m12"].bounding_box()
     plug = Pos(mb.center().X, mb.center().Y, mb.max.Z + 0.1) * Cylinder(
         10.0, 55, align=ALIGN_MIN
@@ -1035,6 +945,24 @@ def verify_flowmeter(parts: dict[str, Solid], r: "Report") -> None:
         f"{sq[1] - sq[0]:.1f} mm of flats on the inlet side",
     )
     print("  [INFO] tighten QSF onto the flowmeter <= 12 N.m (ifm), with a flat G1/2 washer")
+
+
+SECTIONS = (
+    check_interference,
+    check_valve_clamp,
+    check_wall_mounting,
+    check_valve_access,
+    check_connectors,
+    check_flow_direction,
+    check_alignment,
+    check_flowmeter_clamp,
+    check_flowmeter_access,
+    check_modules,
+    check_assembly_order,
+    check_printing,
+    check_variation,
+    check_loads,
+)
 
 
 # --------------------------------------------------------------------------

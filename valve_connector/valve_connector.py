@@ -45,9 +45,10 @@ TUBE_INSERT = 17.0  # M
 MIN_PORT = 9.0
 
 # --- Stations from the RS/TraceParts 3D model (Z, radius) -------------------
-THREAD_CHAMFER_R = 5.72  # thread end / run-out chamfer dia 11.44
-THREAD_FULL_Z = (-5.54, -2.43)  # full-dia thread length
-NECK = ((-1.57, 5.72), (-0.76, 5.65))  # thread undercut
+THREAD_CHAMFER_R = 5.722  # thread end / run-out chamfer dia 11.444
+THREAD_FULL_Z = (-5.544, -2.426)  # full-dia thread length
+NECK = ((-1.57, 5.722), (-0.76, 5.65))  # thread undercut: a step at Z -1.57 from r 5.722
+# down to r 5.65, then a plain cylinder to Z -0.76 (vendor model, tools/cad_compare.py)
 HEX_Z0 = 3.09  # hex underside (r = AF/2)
 HEX_FULL_Z = (4.56, 15.61)  # full corners between these
 HEX_TOP_CHAMFER = (15.90, 9.89)
@@ -78,6 +79,7 @@ def make_fitting() -> Solid:
             (THREAD_D / 2, THREAD_FULL_Z[0]),
             (THREAD_D / 2, THREAD_FULL_Z[1]),
             NECK[0][::-1],
+            (NECK[1][1], NECK[0][0]),  # the undercut step
             NECK[1][::-1],
             (r_af, HEX_Z0),
             (r_af, HEX_Z1),

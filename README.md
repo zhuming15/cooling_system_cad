@@ -103,7 +103,7 @@ The viewer shows what was last pushed: after a design change, run
 assembly.py            build the station, run the design checks, export output/
 flowmeter/             flowmeter model
                        + drawing_check.png  (overlay on the ifm datasheet drawing)
-                       + ifm_check.png      (sections vs ifm's official STEP model)
+                       + cad_check.png      (zone comparison with ifm's STEP model)
 flowmeter_connector/   push-in fitting model
                        + cad_check.png  (comparison with the RS-website 3D model)
 flowmeter_clamp/       flowmeter clamp base + straps (print) + station base plate (laser)
@@ -116,8 +116,13 @@ tools/render.py        PNG renders (assembly + component sheet)
 tools/export_step.py   STEP of every component + the whole station -> output/step/
 tools/view.py          send the model to the OCP CAD Viewer
 tools/dims.py          dimension annotations measured from the placed parts
-tools/cad_compare.py   compare a connector with the RS-website 3D model
-tools/drawing_check.py overlay the flowmeter model on its datasheet drawing
+tools/checks.py        reusable design checks (geometry, printing, laser, tolerance, loads)
+tools/cad_compare.py   compare a part model with the vendor's 3D model, zone by zone
+tools/drawing_check.py overlay a part model on its datasheet drawing; read drawing scales
+tools/fetch_rs_cad.py  unpack an RS 3D-viewer model into a scratch folder
+tests/                 pytest: unit tests of the tools, every check section, negative tests
+.claude/skills/        model-component (model a bought-in part), design-component
+                       (design a made part from requirements)
 output/                generated: assembly.step, assembly.png, components.png,
                        step/ (one STEP per component, assembly STEP, bom.csv)
 ```
@@ -127,7 +132,9 @@ output/                generated: assembly.step, assembly.png, components.png,
 ```bash
 uv sync                                  # once
 
-uv run python assembly.py                # 66 design checks (~1 min) + output/assembly.step/.png
+uv run python assembly.py                # 67 design checks (~1 min) + output/assembly.step/.png
+uv run pytest                            # tools + every check section + negative tests (~2 min)
+uv run pytest -m "not slow"              # the quick ones
 uv run python tools/render.py            # output/assembly.png + output/components.png
 uv run python tools/export_step.py       # output/step/: all components + assembly STEP, bom.csv
 
@@ -180,8 +187,23 @@ The checks cover:
     place along its path without a collision (the link tube can't go in
     last, so it is fitted on the bench), no support needed in the print
     orientation, printed walls at least 1.2 mm, link-tube strain at the
-    Monte Carlo 99.73 % tolerance and over the water temperature range, PETG
-    heat limit, line-pressure end thrust, and the load on each wall screw.
+    Monte Carlo 99.73 % and RSS tolerance stacks and over the water
+    temperature range, PETG heat limit, line-pressure end thrust, and the load
+    on each wall screw.
+
+`uv run pytest` runs the same sections as tests, unit-tests the check
+library and the vendor tools, and runs negative tests that break the design
+on purpose (meter mounted backwards, link tube fitted last, tolerances 3×
+looser, ...) and expect the matching check to fail.
+
+### Comparing a part with its vendor model
+
+`tools/cad_compare.py` splits a part into zones. **Fit-critical** zones
+(threads by convention, sealing faces, clamped diameters, spanner flats) must
+match the vendor model exactly: 0.02 mm at most, which only allows for
+measurement noise, on both surfaces and feature edges. Everything else is
+**envelope**, within 0.5 mm. **Skip** zones are documented conventions only,
+such as a thread the vendor models at another diameter.
 
 ### 3D viewer
 
@@ -216,12 +238,14 @@ The table shows what was checked against a primary source (checked
 | Valve edge chamfer 2.5, boss 18 × 2.5, groove on the face opposite the stem | Scaled | Tognella drawing, 20.7 px/mm (about ±0.3 mm) |
 | Valve flow direction: either way | **Confirmed by you** | Tognella datasheet (double-acting, A–B restrictor without a check valve). RS's product text saying "single-acting" is wrong. |
 | Valve ports need a normal chamfer for the KQ2 gasket | **Measure on the real valve** | SMC KQ2 catalogue: the gasket "is seated on the chamfer of a female thread" |
-| KQ2H12-U02A geometry | **Verified** | SMC catalogue + RS/TraceParts model (max deviation 0.07 mm) |
+| KQ2H12-U02A geometry | **Verified (exact)** | SMC catalogue + RS/TraceParts model: thread, undercut, seal face and hex within 0.001 mm on surfaces and feature edges (`tools/cad_compare.py`, 2026-11-23; the undercut step was corrected then) |
 | KQ2 media: air or water, −100 kPa to 1 MPa, water 0–40 °C | **Verified** | SMC KQ2 catalogue specifications |
-| QSF-1/2-12-B geometry, 23.3 mm insertion depth | **Verified** | Festo datasheet 190653 + RS/TraceParts model (max deviation 0.01 mm) |
+| QSF-1/2-12-B geometry, 23.3 mm insertion depth | **Verified (exact)** | Festo datasheet 190653 + RS/TraceParts model: round body, hex and port face within 0.003 mm, envelope 0.01 mm (`tools/cad_compare.py`, 2026-11-23) |
 | QSF water limit: **0.6 MPa (6 bar) at 50 °C at most** | **Verified** | Festo datasheet 190653 |
 | QSF round body Ø20.8 × 15.3 (where the straps clamp) | Verified (CAD) / **measure one real fitting** | Festo D5 + RS/TraceParts model |
-| SV3051 envelope 77 × 30.2 × 52.7, M12 position, pipe (Ø15.4 with flats 12 apart; 16 AF hex spanner section), housing widths | **Verified** | ifm datasheet + ifm STEP model: outer deviation mean 0.41 mm, 95th percentile 1.9 mm, max 2.4 mm (`flowmeter/ifm_check.png`) |
+| SV3051 envelope 77 × 30.2 × 52.7, M12 position, pipe (Ø15.4 with flats 12 apart; 16 AF hex spanner section), housing widths | Overall sizes **verified**; detail **fails the 0.5 mm envelope rule** | ifm datasheet + ifm STEP (`tools/cad_compare.py flowmeter`, 2026-11-23): ifm surfaces up to 1.9 mm outside the model, model material up to 7.6 mm from ifm's (blocky lower housing). Rework the housing from the STEP |
+| SV3051 end faces (where the G1/2 sealing washer seats) | **Conflict, check the real part** | ifm STEP: an annular groove in each end face, r 6.32–8.47 (Ø12.6–16.9), 1.2 mm deep, filleted, likely for a seal ring; not on the datasheet, not modelled. The face itself ends at Ø18.4 (model Ø18.8, scaled from the drawing), under the washer's OD ≤ 18.6 |
+| SV3051 spanner flats (locating pad) | **Conflict, 0.03 mm** | datasheet: 12; ifm STEP: 12.06 apart. The pad sits 0.03 mm lower than the model shows |
 | SV3051 tightening torque 12 N·m | **Verified** | ifm operating instructions 11592037, Tab. 1 |
 | SV3051 straight runs at least 15 × DN; not directly in front of a valve | **Verified, now designed in** | ifm operating instructions, sec. 4 and 4.1 |
 | SV3051 mounting orientation: horizontal pipe, housing on top | **Decided by you; matches ifm** | ifm operating instructions 11592037, Fig. 1 (recommended position) |
