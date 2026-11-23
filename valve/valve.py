@@ -35,7 +35,6 @@ from build123d import (
     Rot,
     Solid,
     chamfer,
-    export_step,
     extrude,
     fillet,
     make_face,
@@ -154,14 +153,10 @@ def make_valve() -> Solid:
 
 
 if __name__ == "__main__":
-    from pathlib import Path
-
     v = make_valve()
     bb = v.bounding_box()
     print(
         f"valve bbox: {bb.size.X:.2f} x {bb.size.Y:.2f} x {bb.size.Z:.2f} mm "
         f"(Tognella C 46, D 57, CH 18)"
     )
-    out = Path(__file__).with_name("rs_2838289_valve.step")
-    export_step(v, str(out))
-    print(f"Exported {out}")
+    print("STEP: uv run python tools/export_step.py -> output/step/")

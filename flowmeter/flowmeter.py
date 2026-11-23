@@ -41,7 +41,6 @@ from build123d import (
     SlotCenterToCenter,
     Solid,
     chamfer,
-    export_step,
     extrude,
     make_face,
     revolve,
@@ -221,8 +220,6 @@ def make_flowmeter() -> Solid:
 
 
 if __name__ == "__main__":
-    from pathlib import Path
-
     f = make_flowmeter()
     bb = f.bounding_box()
     print(
@@ -230,6 +227,4 @@ if __name__ == "__main__":
         f"(datasheet 77 x 30.2 x 52.7)"
     )
     print(f"M12 axis {L_TOTAL / 2 - M12_X:.1f} mm from inlet end (datasheet 27.4)")
-    out = Path(__file__).with_name("ifm_sv3051.step")
-    export_step(f, str(out))
-    print(f"Exported {out}")
+    print("STEP: uv run python tools/export_step.py -> output/step/")

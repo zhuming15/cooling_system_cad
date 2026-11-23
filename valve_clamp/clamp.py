@@ -47,7 +47,6 @@ from build123d import (
     Solid,
     Unit,
     chamfer,
-    export_step,
     extrude,
 )
 
@@ -324,10 +323,8 @@ def export_profiles(profiles: dict[str, Sketch], folder: Path) -> None:
 
 
 if __name__ == "__main__":
-    here = Path(__file__).parent
     parts = {"rs_2838289_clamp_base": make_base(), "rs_2838289_clamp_cap": make_cap_unclamped()}
     for n, p in parts.items():
-        export_step(p, str(here / f"{n}.step"))
         bb = p.bounding_box()
         print(
             f"{n}: {bb.size.X:.1f} x {bb.size.Y:.1f} x {bb.size.Z:.1f} mm, "
@@ -338,4 +335,4 @@ if __name__ == "__main__":
         f"base: 2 x M4x{MOUNT_LEN:.0f} into captive nuts, {MOUNT_TORQUE} N.m; "
         "2 x dowel 4 m6 x 12"
     )
-    print("Exported rs_2838289_clamp_base.step, rs_2838289_clamp_cap.step (3D print)")
+    print("STEP: uv run python tools/export_step.py -> output/step/")

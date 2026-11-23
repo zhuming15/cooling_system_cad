@@ -55,8 +55,8 @@ uv sync                                   # deps (build123d, matplotlib, ocp-vsc
 uv run python assembly.py                 # MUST print "ALL CHECKS PASS" (exit 0)
 uv run python tools/render.py             # output/assembly.png + output/components.png
 uv run python tools/export_step.py        # output/step/: per-component + assembly STEP, bom.csv
-uv run python flowmeter_clamp/flowmeter_clamp.py  # plate DXF/STEP + flowmeter clamp STEP
-uv run python valve_clamp/clamp.py        # valve clamp STEP (likewise for the bought-in parts)
+uv run python flowmeter_clamp/flowmeter_clamp.py  # plate DXF (laser) + flowmeter clamp sizes
+uv run python valve_clamp/clamp.py        # valve clamp sizes (likewise for the bought-in parts)
 uv run python tools/view.py [assembly|exploded|parts|valve|connector|base|cap|
                             flowmeter|flowmeter_connector|flowmeter_fitted]
 uv run python tools/cad_compare.py <valve_connector|flowmeter_connector> <vendor _000.bin>
@@ -74,8 +74,8 @@ Don't treat that as a code bug; the user has to start the viewer.
 2. When you add or change a check, prove it can fail. Build a deliberately bad
    variant in a throwaway snippet (shift a part, shrink the pocket), confirm
    the check reports FAIL, then discard the snippet.
-3. Re-run the part's own script so its STEP in the part folder is current,
-   then run `tools/render.py`. Look at `output/components.png` and
+3. Run `tools/export_step.py` so `output/step/` is current (and the part's
+   own script if it writes a DXF), then run `tools/render.py`. Look at `output/components.png` and
    `output/assembly.png`; a passing check can still hide a visibly wrong
    shape.
 4. For the flowmeter or its connector, re-run `tools/drawing_check.py` or
@@ -127,9 +127,12 @@ Don't treat that as a code bug; the user has to start the viewer.
   values from those constants rather than hard-coding numbers. The clamp is
   sized from `valve.BODY_W` and the other valve constants, so changing the
   valve resizes the clamp.
-- **Each part file exposes `make_*() -> Solid` functions** and exports its
-  STEP only under `if __name__ == "__main__":`. `assembly.py` and `tools/`
-  import these functions; they never load STEP files.
+- **Each part file exposes `make_*() -> Solid` functions.** Its
+  `if __name__ == "__main__":` block only prints sizes (and writes the laser
+  DXFs for the plate). STEP files are written only into `output/`, by
+  `assembly.py` and `tools/export_step.py`; don't put STEP files in the part
+  folders. `assembly.py` and `tools/` import the `make_*` functions; they
+  never load STEP files.
 - **Imports:** part folders are not packages. Entry scripts add the repo root
   and each part folder to `sys.path`, then `import valve as V`,
   `import valve_connector as F`, `import clamp as C`,

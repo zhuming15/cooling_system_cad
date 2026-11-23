@@ -51,7 +51,6 @@ from build123d import (
     SlotCenterToCenter,
     Solid,
     chamfer,
-    export_step,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -265,7 +264,6 @@ if __name__ == "__main__":
         "sv3051_clamp_strap": make_cap_unclamped(STRAP_X),
     }
     for n, p in parts.items():
-        export_step(p, str(here / f"{n}.step"))
         bb = p.bounding_box()
         mat = "PMMA" if n.startswith("base_") else "PETG, solid"
         rho = 1.19e-3 if n.startswith("base_") else 1.27e-3
@@ -276,4 +274,5 @@ if __name__ == "__main__":
         f"straps: 2 x M4x{CAP_SCREW_LEN:.0f} + DIN 125 each into inserts, {C.CAP_TORQUE} N.m; "
         f"base: 2 x M4x{MOUNT_LEN:.0f} into captive nuts, {C.MOUNT_TORQUE} N.m; 2 x dowel 4 m6 x 12"
     )
-    print("Exported base_back/base_front .dxf (laser) + .step; clamp base/strap .step (3D print)")
+    print("Exported base_back/base_front .dxf (laser cutting) in flowmeter_clamp/")
+    print("STEP: uv run python tools/export_step.py -> output/step/")

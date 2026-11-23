@@ -91,19 +91,17 @@ inlet tube → ifm SV3051 flowmeter → straight 12 mm link tube → RS 283-8289
 
 ```
 assembly.py            build the station, run the design checks, export output/
-flowmeter/             flowmeter model        + ifm_sv3051.step
+flowmeter/             flowmeter model
                        + drawing_check.png  (overlay on the ifm datasheet drawing)
                        + ifm_check.png      (sections vs ifm's official STEP model)
-flowmeter_connector/   push-in fitting model  + festo_qsf-1-2-12-b.step
+flowmeter_connector/   push-in fitting model
                        + cad_check.png  (comparison with the RS-website 3D model)
 flowmeter_clamp/       flowmeter clamp base + straps (print) + station base plate (laser)
-                       + sv3051_clamp_base.step, sv3051_clamp_strap.step   (3D print)
-                       + base_back / base_front .dxf (laser) and .step
-valve/                 valve model            + rs_2838289_valve.step
-valve_connector/       push-in fitting model  + smc_kq2h12-u02a.step
+                       + base_back / base_front .dxf (laser cutting)
+valve/                 valve model
+valve_connector/       push-in fitting model
                        + cad_check.png  (comparison with the RS-website 3D model)
 valve_clamp/           valve clamp base + cap, shared constants and hardware
-                       + rs_2838289_clamp_base.step, rs_2838289_clamp_cap.step   (3D print)
 tools/render.py        PNG renders (assembly + component sheet)
 tools/export_step.py   STEP of every component + the whole station -> output/step/
 tools/view.py          send the model to the OCP CAD Viewer
@@ -123,9 +121,9 @@ uv run python assembly.py                # 66 design checks (~1 min) + output/as
 uv run python tools/render.py            # output/assembly.png + output/components.png
 uv run python tools/export_step.py       # output/step/: all components + assembly STEP, bom.csv
 
-uv run python flowmeter_clamp/flowmeter_clamp.py   # plate DXF + flowmeter clamp STEP
-uv run python valve_clamp/clamp.py                 # valve clamp base + cap STEP
-uv run python valve/valve.py                       # re-export a bought-in part's STEP
+uv run python flowmeter_clamp/flowmeter_clamp.py   # plate DXF (laser) + flowmeter clamp sizes
+uv run python valve_clamp/clamp.py                 # valve clamp base + cap sizes
+uv run python valve/valve.py                       # a part's size vs its datasheet
 uv run python valve_connector/valve_connector.py
 uv run python flowmeter/flowmeter.py
 uv run python flowmeter_connector/flowmeter_connector.py

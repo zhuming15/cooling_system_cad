@@ -27,7 +27,6 @@ from build123d import (
     Pos,
     RegularPolygon,
     Solid,
-    export_step,
     extrude,
     make_face,
     revolve,
@@ -119,14 +118,10 @@ def make_tube(length: float = 40.0) -> Solid:
 
 
 if __name__ == "__main__":
-    from pathlib import Path
-
     f = make_fitting()
     bb = f.bounding_box()
     print(
         f"fitting bbox: {bb.size.X:.2f} x {bb.size.Y:.2f} x {bb.size.Z:.2f} mm "
         f"(Z {bb.min.Z:.2f}..{bb.max.Z:.2f}; catalogue L 24.8 = -6.4..18.4)"
     )
-    out = Path(__file__).with_name("smc_kq2h12-u02a.step")
-    export_step(f, str(out))
-    print(f"Exported {out}")
+    print("STEP: uv run python tools/export_step.py -> output/step/")

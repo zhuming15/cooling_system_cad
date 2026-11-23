@@ -32,7 +32,6 @@ from build123d import (
     RegularPolygon,
     Rot,
     Solid,
-    export_step,
     extrude,
     make_face,
     revolve,
@@ -146,14 +145,10 @@ def make_tube(length: float = 40.0) -> Solid:
 
 
 if __name__ == "__main__":
-    from pathlib import Path
-
     f = make_fitting()
     bb = f.bounding_box()
     print(
         f"QSF-1/2-12-B bbox: {bb.size.X:.2f} x {bb.size.Y:.2f} x {bb.size.Z:.2f} mm "
         f"(Z {bb.min.Z:.2f}..{bb.max.Z:.2f})"
     )
-    out = Path(__file__).with_name("festo_qsf-1-2-12-b.step")
-    export_step(f, str(out))
-    print(f"Exported {out}")
+    print("STEP: uv run python tools/export_step.py -> output/step/")
