@@ -1,327 +1,420 @@
-# flow — wall-mounted flowmeter and flow control valve station
+# Flow station: flowmeter and flow control valve on one wall plate
 
-Parametric CAD (build123d) for a wall-mounted water flow station. Seen from the
-operator's side, flow runs left to right:
+Parametric CAD (Python, [build123d](https://github.com/gumyr/build123d)) for a
+small wall-mounted water station. Water passes through an ifm SV3051 vortex
+flowmeter, a short straight 12 mm tube, and a needle valve. Seen from the
+front, flow runs left to right:
 
 ```
-inlet tube → ifm SV3051 flowmeter → straight 12 mm link tube → RS 283-8289 valve → outlet tube
+inlet tube → ifm SV3051 flowmeter → 140.3 mm link tube → RS 283-8289 needle valve → outlet tube
 ```
 
-**[Open the whole assembly in an interactive 3D viewer](https://3dviewer.net/#model=https://raw.githubusercontent.com/zhuming15/cooling_system_cad/main/output/step/00_flow_station_assembly.step)**
-(rotate, zoom, hide parts, measure; runs in the browser, nothing to install).
-It loads `output/step/00_flow_station_assembly.step` straight from `main`, so
-it always shows the latest pushed design. Click the picture to open it too.
+Both components sit in 3D-printed PETG clamps on a laser-cut acrylic plate,
+which screws to the wall.
 
 [![Flow station assembly](output/assembly.png)](https://3dviewer.net/#model=https://raw.githubusercontent.com/zhuming15/cooling_system_cad/main/output/step/00_flow_station_assembly.step)
 
-The viewer shows what was last pushed: after a design change, run
-`uv run python tools/export_step.py` and push `output/step/`.
+[Open the assembly in a 3D viewer](https://3dviewer.net/#model=https://raw.githubusercontent.com/zhuming15/cooling_system_cad/main/output/step/00_flow_station_assembly.step)
+(runs in the browser; it loads `output/step/00_flow_station_assembly.step` from
+`main`, so it shows the last pushed version).
 
-| Part | Source | Qty |
+Contents: [Ratings](#ratings) · [Bill of materials](#bill-of-materials) ·
+[Manufacturing](#manufacturing) · [Assembly](#assembly) ·
+[Tests on real parts](#tests-on-real-parts) ·
+[How the design works](#how-the-design-works) · [Open items](#open-items) ·
+[Part data sources](#where-the-part-dimensions-come-from) ·
+[Working with the code](#working-with-the-code) ·
+[Maintaining the design](#maintaining-the-design)
+
+## Ratings
+
+| | |
+|---|---|
+| Medium | Water |
+| Pressure | 6 bar max (limited by the Festo QSF fittings) |
+| Water temperature | 0–40 °C (limited by the SMC KQ2 fittings) |
+| Flow measured | 0.5–10 l/min (SV3051) |
+| Tube | 12 mm OD × 8 mm ID, PU or PA |
+| Station size | 300 × 92 mm plate; 78 mm deep from the wall to the valve knob |
+
+The valve itself is rated 210 bar and the meter 16 bar. Don't use those
+numbers for the station.
+
+## Bill of materials
+
+`output/step/bom.csv` is generated from the model and lists every part with
+its STEP file.
+
+### Bought-in parts
+
+| Part | Qty | Model |
 |---|---|---|
-| ifm SV3051 vortex flow meter, water 0.5–10 l/min, G1/2 male | `flowmeter/flowmeter.py` | 1 |
-| Festo QSF-1/2-12-B push-in fitting, G1/2 female × 12 mm tube | `flowmeter_connector/flowmeter_connector.py` | 2 |
-| RS PRO 283-8289 in-line flow control valve, G1/4, 210 bar (= Tognella FT 1251/2-01-14) | `valve/valve.py` | 1 |
-| SMC KQ2H12-U02A push-in male connector, 12 mm tube × Uni 1/4 | `valve_connector/valve_connector.py` | 2 |
-| **Station base**: plate with holes only, 2 × 6 mm laser-cut acrylic layers (wall layer + front layer), 300 × 92 | `flowmeter_clamp/flowmeter_clamp.py` | 1 + 1 |
-| Valve clamp base + cap, 3D printed PETG | `valve_clamp/clamp.py` | 1 + 1 |
-| Flowmeter clamp base (2 pedestals + pad, one piece) + strap, 3D printed PETG | `flowmeter_clamp/flowmeter_clamp.py` | 1 + 2 |
-| ISO 8734 dowel pin Ø4 m6 × 12 (locates each clamp base on the plate) | — | 4 |
-| ISO 4762 M4×16 / M4×12 + ISO 4032 M4 nut captive in the plate (clamp bases), 0.2 N·m | — | 2 + 2 (+4 nuts) |
-| ISO 4762 M4×20 / M4×30 + DIN 125 washer into heat-set M4 inserts (cap, straps), 0.5 N·m | — | 4 + 4 (+8 inserts) |
-| Heat-set insert M4 × 8.1 (ruthex RX-M4x8.1 or similar, Ø5.6 hole) | — | 8 |
-| M6 socket screw + wall plug (wall fixing) | — | 8 |
-| G1/2 flat sealing washer, OD ≤ 18.6, ID ≥ 11.5, ~1 mm, FKM/EPDM (open: the meter's end faces have a seal-ring groove, see Verification status) | — | 2 |
-| 12 × 8 mm tube: inlet (≥ 100 mm straight), 140.3 mm link, outlet | — | — |
+| ifm SV3051 vortex flowmeter, G1/2 male both ends | 1 | `flowmeter/flowmeter.py` |
+| Festo QSF-1/2-12-B push-in fitting, G1/2 female × 12 mm tube | 2 | `flowmeter_connector/flowmeter_connector.py` |
+| RS PRO 283-8289 needle valve, G1/4 (made by Tognella, FT 1251/2-01-14) | 1 | `valve/valve.py` |
+| SMC KQ2H12-U02A push-in fitting, 12 mm tube × G1/4 male | 2 | `valve_connector/valve_connector.py` |
+| G1/2 flat sealing washer, OD ≤ 18.6, ID ≥ 11.5, about 1 mm, FKM or EPDM (see [Open items](#open-items)) | 2 | |
+| 12 × 8 mm tube: link 140.3 mm cut square, plus inlet (≥ 100 mm straight) and outlet | | |
 
-### Design
+### Made parts
 
-- **Flow direction.** The valve has no flow direction; either port can be the
-  inlet. Tognella's datasheet shows it as double-acting, and you've confirmed
-  it; RS's product text calling it "single-acting" is wrong. The flowmeter does have one, so it is turned to make its arrow point
-  along the system flow, toward the valve. The flowmeter sits upstream of the
-  valve, for two reasons. First, the valve keeps the meter under
-  back-pressure, which ifm requires to avoid cavitation. Second, the
-  turbulence the valve creates stays downstream of the measurement.
-- **Straight runs (ifm manual 11592037, Fig. 2).** The meter needs at least
-  15 × DN = 90 mm of straight pipe before and after it, and ifm advises
-  against mounting it "directly in front of a valve". The link to the valve
-  therefore has 100 mm of free straight tube. On the inlet side, keep the
-  supply tube straight for at least 100 mm.
-- **Modular clamps on a plain station base.** The station base is a flat
-  laser-cut acrylic plate with holes only. Each clamp is a module: a printed
-  **clamp base** is located on the plate by 2 steel dowel pins and fixed by
-  2 × M4 from the front into captive nuts in the plate. Then the component
-  goes in, and the printed **clamp head** (cap or strap) screws onto its
-  clamp base through heat-set inserts. The base screws sit under the channel
-  floor or bore bottom, so they are reachable until the component covers them.
-- **Valve clamp.** The square valve body sits in a channel split between the
-  clamp base and the cap. The two halves are 1.0 mm short of meeting (larger
-  than the 2 × 0.2 mm print tolerance), so the cap always closes onto the body
-  before it touches the base, which gives the clamping force. The knob passes through a Ø27.5 opening in
-  the cap (which also clears the 18 × 18 stem boss) and stands about 25 mm
-  proud of it.
-- **Flowmeter clamp.**
-  - **Grips round, not hex.** Each QSF fitting is torqued onto the meter's
-    thread, so the angle its hex ends up at can't be controlled. The straps
-    therefore grip the fitting's **round Ø20.8 body**, which fits at any
-    angle. An assembly check spins every fitting through a full hex pitch to
-    prove it.
-  - **Torque the QSF fittings on the bench**, holding the meter by its
-    flats. The printed straps are not made to react the 12 N·m thread torque.
-  - **Mounting position:** horizontal pipe with the **housing and M12
-    connector on top**, which is ifm's recommended position (manual 11592037,
-    Fig. 1). The whole station hangs on the wall with the pipe running
-    parallel to it. The LED windows on the sides of the lid face you.
-  - **Meter stays upright.** The angle is set by the meter itself: its
-    downward-facing 12 mm spanner flat rests on a **locating pad**, a ledge
-    of the flowmeter clamp base under the meter. That flat is moulded into the
-    meter, so its angle relative to the housing is fixed. Gravity keeps it
-    seated, and the pad carries no screw load.
-  - **Tube loads bypass the meter.** All clamp load goes through the brass
-    fittings, so tube loads never pass through the meter's 12 N·m plastic
-    threads.
-- **Straight link tube with no strain.**
-  - **No side offset:** both clamp bases are located by dowel pins in holes
-    that the laser cuts into the same plate layer in one pass, so the two axes
-    are nominally coaxial. Both flowmeter pedestals are one printed part. The
-    wall slots move the whole plate, so they can't misalign one clamp against
-    the other. At worst-case print (±0.2) and laser (±0.1) tolerances, the
-    offset is 1.24 mm, which bends the 100 mm free link by 0.45 %, inside the
-    0.5 % limit the checks hold.
-  - **Same height:** both parts sit on their cradle floor with the same
-    0.15 mm pocket clearance, so both axes end up the same distance from the
-    wall.
-  - **No axial strain:** the tube is cut exactly stop-to-stop (140.3 mm). The
-    flowmeter straps allow ±1.65 mm of axial float, so push the tube home
-    first and tighten the straps afterwards. The meter then settles where the
-    tube puts it.
+| Part | Qty | Process | File |
+|---|---|---|---|
+| Station plate, wall layer | 1 | Laser cut, 6 mm cast acrylic | `flowmeter_clamp/base_back.dxf` |
+| Station plate, front layer | 1 | Laser cut, 6 mm cast acrylic | `flowmeter_clamp/base_front.dxf` |
+| Valve clamp base | 1 | FDM print, PETG | `output/step/07_valve_clamp_base.step` |
+| Valve clamp cap | 1 | FDM print, PETG | `output/step/08_valve_clamp_cap.step` |
+| Flowmeter clamp base (both pedestals and the locating pad, one piece) | 1 | FDM print, PETG | `output/step/09_flowmeter_clamp_base.step` |
+| Flowmeter strap | 2 | FDM print, PETG | `output/step/10_flowmeter_clamp_strap.step` |
 
-## Layout
+### Hardware
 
-```
-assembly.py            build the station, run the design checks, export output/
-flowmeter/             flowmeter model
-                       + drawing_check.png  (overlay on the ifm datasheet drawing)
-                       + cad_check.png      (zone comparison with ifm's STEP model)
-flowmeter_connector/   push-in fitting model
-                       + cad_check.png  (comparison with the RS-website 3D model)
-flowmeter_clamp/       flowmeter clamp base + straps (print) + station base plate (laser)
-                       + base_back / base_front .dxf (laser cutting)
-valve/                 valve model
-valve_connector/       push-in fitting model
-                       + cad_check.png  (comparison with the RS-website 3D model)
-valve_clamp/           valve clamp base + cap, shared constants and hardware
-tools/render.py        PNG renders (assembly + component sheet)
-tools/export_step.py   STEP of every component + the whole station -> output/step/
-tools/view.py          send the model to the OCP CAD Viewer
-tools/dims.py          dimension annotations measured from the placed parts
-tools/checks.py        reusable design checks (geometry, printing, laser, tolerance, loads)
-tools/cad_compare.py   compare a part model with the vendor's 3D model, zone by zone
-tools/drawing_check.py overlay a part model on its datasheet drawing; read drawing scales
-tools/fetch_rs_cad.py  unpack an RS 3D-viewer model into a scratch folder
-tests/                 pytest: unit tests of the tools, every check section, negative tests
-.claude/skills/        model-component (model a bought-in part), design-component
-                       (design a made part from requirements)
-output/                generated: assembly.step, assembly.png, components.png,
-                       step/ (one STEP per component, assembly STEP, bom.csv)
-```
+| Part | Qty | Where | Torque |
+|---|---|---|---|
+| Dowel pin ISO 8734, Ø4 m6 × 12 | 4 | Locate each clamp base on the plate | |
+| ISO 4762 M4 × 16 and M4 × 12 | 2 + 2 | Clamp bases to the plate | 0.2 N·m |
+| ISO 4032 M4 nut | 4 | Captive in the plate | |
+| ISO 4762 M4 × 20 + DIN 125 washer | 4 | Valve cap | 0.5 N·m |
+| ISO 4762 M4 × 30 + DIN 125 washer | 4 | Flowmeter straps | 0.5 N·m |
+| Heat-set insert M4 × 8.1 (ruthex RX-M4x8.1 or equal), Ø5.6 hole | 8 | In the clamp bases | |
+| M6 socket head screw + wall plug | 8 | Plate to the wall | |
 
-## Usage
+## Manufacturing
 
-```bash
-uv sync                                  # once
+### Laser-cut plate
 
-uv run python assembly.py                # 67 design checks (~1 min) + output/assembly.step/.png
-uv run pytest                            # tools + every check section + negative tests (~2 min)
-uv run pytest -m "not slow"              # the quick ones
-uv run python tools/render.py            # output/assembly.png + output/components.png
-uv run python tools/export_step.py       # output/step/: all components + assembly STEP, bom.csv
+- Two layers of 6 mm cast acrylic. The DXFs are in mm, outlines on layer
+  `CUT`. Regenerate them with `uv run python flowmeter_clamp/flowmeter_clamp.py`.
+- Cut all the dowel holes in the front layer in one job. The two clamps are
+  only coaxial if their dowel holes come from the same cut.
+- Solvent-weld the two layers together. The M4 nuts go into the hex pockets
+  from the wall side before the plate goes on the wall; the wall then traps
+  them.
+- The design assumes ±0.1 mm on hole positions. Cut the calibration coupon
+  first (test 2 below).
 
-uv run python flowmeter_clamp/flowmeter_clamp.py   # plate DXF (laser) + flowmeter clamp sizes
-uv run python valve_clamp/clamp.py                 # valve clamp base + cap sizes
-uv run python valve/valve.py                       # a part's size vs its datasheet
-uv run python valve_connector/valve_connector.py
-uv run python flowmeter/flowmeter.py
-uv run python flowmeter_connector/flowmeter_connector.py
-```
+### Printed parts
 
-`assembly.py` prints PASS/FAIL for each check and exits non-zero if any fail.
-The checks cover:
+- PETG. Walls are at least 1.2 mm, which is 3 perimeters with a 0.4 mm nozzle.
+- Print orientation:
+  - clamp bases and the valve cap: the wall-side face on the bed;
+  - straps: on their end face.
 
-1. Interference between every pair of parts.
-2. Valve clamp: the cap closes onto the valve before reaching the base (after
-   print tolerance), anti-rotation, slip resistance and pressure on the PETG.
-3. Wall mounting: nothing behind the wall plane, and a straight hex-key path
-   from the front to the 8 wall screws and the 8 cap and strap screws.
-4. Valve operator access: knob grip, finger room, line of sight, and room to
-   press the release collars.
-5. Valve connector mating: thread engagement, alignment with the ports, tubes
-   fully home, seal seating, no flow restriction, and spanner access.
-6. Flow direction, read from the placed geometry: the flowmeter arrow follows
-   the system flow, the meter is upstream of the valve, and the housing and
-   M12 connector are on top of a horizontal pipe (ifm Fig. 1).
-7. Link-tube alignment: both fitting axes coaxial (0.000 mm offset), the tube
-   dead straight, its length exactly stop-to-stop, straight runs of at least
-   15 × DN, fully inserted at both ends, both clamp bases on one plate layer,
-   tube strain at worst-case tolerances, and axial float available.
-8. Flowmeter clamp:
-   - the straps close onto the round body before reaching the base, and both
-     fittings are seated;
-   - the straps sit on the round section only;
-   - it fits at any fitting hex angle (a sweep through a full hex pitch);
-   - the meter flat rests on the locating pad, and the meter touches nothing
-     else;
-   - holding: tube pull per strap, the meter can't roll under a cable pull,
-     and pressure on the PETG.
-9. Flowmeter operator access: room above for the M12 cable
-   plug, release rings free to press from the front (the wall-side gap is
-   reported), and reachable spanner flats.
-10. Clamp modules: the plate is two flat layers with holes only, each clamp
-    base has 2 dowels in the plate and 2 M4, every base screw passes through
-    its captive nut and is reachable before the component goes in, every
-    cap/strap screw fills its insert, screw bearing on PETG and acrylic, the
-    bases can't tip under a 500 N tube pull, and every printed part fits a
-    250 mm printer bed.
-11. Build, print, service and environment: every assembly step swept into
-    place along its path without a collision (the link tube can't go in
-    last, so it is fitted on the bench), no support needed in the print
-    orientation, printed walls at least 1.2 mm, link-tube strain at the
-    Monte Carlo 99.73 % and RSS tolerance stacks and over the water
-    temperature range, PETG heat limit, line-pressure end thrust, and the load
-    on each wall screw.
-
-`uv run pytest` runs the same sections as tests, unit-tests the check
-library and the vendor tools, and runs negative tests that break the design
-on purpose (meter mounted backwards, link tube fitted last, tolerances 3×
-looser, ...) and expect the matching check to fail.
-
-### Comparing a part with its vendor model
-
-`tools/cad_compare.py` splits a part into zones. **Fit-critical** zones
-(threads by convention, sealing faces, clamped diameters, spanner flats) must
-match the vendor model exactly: 0.02 mm at most, which only allows for
-measurement noise, on both surfaces and feature edges. Everything else is
-**envelope**, within 0.5 mm. **Skip** zones are documented conventions only,
-such as a thread the vendor models at another diameter.
-
-### 3D viewer
-
-Start the OCP CAD Viewer (VS Code extension, or `uv run python -m ocp_vscode`
-then open http://127.0.0.1:3939/viewer), then:
-
-```bash
-uv run python tools/view.py              # station (default)
-uv run python tools/view.py exploded     # pulled apart in build order
-uv run python tools/view.py parts        # valve-side components side by side
-uv run python tools/view.py valve        # or: connector | base | cap
-uv run python tools/view.py flowmeter_fitted   # or: flowmeter | flowmeter_connector
-```
-
-## Coordinates
-
-The wall is the plane Y = 0, with +Y pointing toward the operator. Z is up.
-The flow axis is horizontal, 30 mm from the wall (`AXIS_Y`). The operator
-faces the wall, so global +X is on their left. System flow runs along −X
-(`FLOW_DIR` in `assembly.py`), which is left to right as the operator sees it.
-The valve sits at X = 0 and the flowmeter at X = +207.7. The station base is
-300 mm long (laser-cut); the largest printed part is 120 mm.
-
-## Verification status
-
-The table shows what was checked against a primary source (checked
-2026-11-20) and what still needs confirming on real parts or by you.
-
-| Item | Status | Source / evidence |
-|---|---|---|
-| Valve body 18 × 18 × 46, G1/4 ports 12 deep, M17×1 bush, Ø22 knob, height 57 | **Verified** | Tognella FT 1251/2-01 datasheet, table type 14 (RS lists "manufacturer series FT1251/2") |
-| Valve edge chamfer 2.5, boss 18 × 2.5, groove on the face opposite the stem | Scaled | Tognella drawing, 20.7 px/mm (about ±0.3 mm) |
-| Valve flow direction: either way | **Confirmed by you** | Tognella datasheet (double-acting, A–B restrictor without a check valve). RS's product text saying "single-acting" is wrong. |
-| Valve ports need a normal chamfer for the KQ2 gasket | **Measure on the real valve** | SMC KQ2 catalogue: the gasket "is seated on the chamfer of a female thread" |
-| KQ2H12-U02A geometry | **Verified (exact)** | SMC catalogue + RS/TraceParts model: thread, undercut, seal face and hex within 0.001 mm on surfaces and feature edges (`tools/cad_compare.py`, 2026-11-23; the undercut step was corrected then) |
-| KQ2 media: air or water, −100 kPa to 1 MPa, water 0–40 °C | **Verified** | SMC KQ2 catalogue specifications |
-| QSF-1/2-12-B geometry, 23.3 mm insertion depth | **Verified (exact)** | Festo datasheet 190653 + RS/TraceParts model: round body, hex and port face within 0.003 mm, envelope 0.01 mm (`tools/cad_compare.py`, 2026-11-23) |
-| QSF water limit: **0.6 MPa (6 bar) at 50 °C at most** | **Verified** | Festo datasheet 190653 |
-| QSF round body Ø20.8 × 15.3 (where the straps clamp) | Verified (CAD) / **measure one real fitting** | Festo D5 + RS/TraceParts model |
-| SV3051 envelope 77 × 30.2 × 52.73, M12 position and socket, housing, pipe, flow arrows, flow passage | **Verified (envelope)** | ifm datasheet + ifm STEP CAD_STP_300_0358, every dimension read off its faces (`tools/cad_compare.py flowmeter`, 2026-11-23): ifm surfaces within 0.18 mm of the model, model surfaces within 0.32 mm of ifm's (limit 0.5). Left out: blends of r ≤ 0.6 on the housing, the pin holes in the M12 socket floor |
-| SV3051 G1/2 ends: shoulder (QSF seat) at 13 from each end, thread at major Ø20.955 with 45° chamfers, lead-in Ø18.6 × 2, end face, inlet bore Ø11.5 × 10 | **Verified (exact)** | ifm datasheet + ifm STEP: 0.000 mm on surfaces and feature edges (`tools/cad_compare.py flowmeter`, 2026-11-23). ifm models the thread at the major diameter too, so no skip zone |
-| SV3051 end-face groove: ID 12.85, OD 16.75, 1.2 deep, r 0.25 at the bottom, r 0.1 on the face edges | **Verified (exact), modelled** | ifm STEP, 0.000 mm. Not on the datasheet. Most likely a seal-ring groove (ifm lists an FKM seal among the wetted parts) |
-| SV3051 spanner flats 12 AF (locating pad), x −19.24 … 25.5; 16 AF hex x 15.5 … 25.5 | **Verified (exact)** | datasheet: 12; ifm STEP: faces at z = −6.000 and +6.000, 0.000 mm on surfaces and edges. The earlier "12.06" was a measuring artefact: the model's spanner section started at x 15.6, ifm's at 15.5 (now 15.5) |
-| SV3051 tightening torque 12 N·m | **Verified** | ifm operating instructions 11592037, Tab. 1 |
-| SV3051 straight runs at least 15 × DN; not directly in front of a valve | **Verified, now designed in** | ifm operating instructions, sec. 4 and 4.1 |
-| SV3051 mounting orientation: horizontal pipe, housing on top | **Decided by you; matches ifm** | ifm operating instructions 11592037, Fig. 1 (recommended position) |
-| SV3051 display | **Confirmed by you: no display** | Not modelled. (The RS/ifm datasheet text mentions a 1.44" display; if one turns out to be there, it sits on the lid, which faces the operator.) |
-| SV3051 sealing at the end face: flat G1/2 washer, or an O-ring in the end-face groove | **Open: check the real meter or ifm manual 11592037** | You confirmed a flat washer (OD ≤ 18.6, ID ≥ 11.5, about 1 mm, FKM/EPDM) before the groove was known. With the groove, a flat washer bears only on two lands, Ø11.7–12.65 and Ø16.95–18.4 (0.5 and 0.7 mm wide). Check whether the meter comes with seal rings in the grooves (ifm's manual could not be downloaded here: 403) |
-| M4 torque → preload: 0.5 N·m → 625 N (caps), 0.2 N·m → 250 N (bases) | Derived | T = K·F·d, K 0.2; limited by the plastics, not the screws. Base torque has a narrow window: 0.15 N·m lets the valve base tip at 500 N, 0.3 N·m overloads the acrylic under the nut |
-| Plastics: PETG 15 MPa / acrylic 10 MPa sustained contact, μ 0.3 PETG on brass, print ±0.2 mm, laser ±0.1 mm | **Estimate, confirm** | Typical values, no single source; they drive the split gap, tolerance-strain and pressure checks |
-| Heat-set insert M4 × 8.1, Ø5.6 hole | Typical | ruthex RX-M4x8.1 dimensions; check the insert you buy |
-| Link-tube bending strain limit 0.5 % | **Estimate** | Conservative for PU / PA tube; no source |
-| Tube CTE 150e-6/K, PETG HDT 70 °C, 15 mm bridge, 100 N per plasterboard plug | **Estimate** | Typical values; section 11 of `assembly.py` |
-| System limit: water ≤ 6 bar, 0–40 °C | **Derived** | lowest of QSF (6 bar ≤ 50 °C), KQ2 (1 MPa, 0–40 °C), meter (16 bar), valve (210 bar) |
-| 500 N tube pull, 50 N cable pull, wall type, tube supports | **Accepted by you** | Engineering judgement, no source |
+  In that orientation nothing needs support: the longest bridge is under
+  15 mm, and the only curved overhangs are holes up to Ø10.
+- Every part fits a 250 mm bed. The largest is the flowmeter clamp base,
+  120 mm long.
+- The STEP files in `output/step/` are not rotated into print orientation.
+  Lay them on the face given above in the slicer.
+- The caps and straps are exported in their as-printed position. In
+  service, they close 0.15 mm further onto the part they clamp.
+- The design assumes ±0.2 mm on printed features. The 1.0 mm gap between
+  each cap or strap and its base is sized for that. Print the coupon first
+  (test 3 below).
+- Press 2 dowel pins into each clamp base. Set the M4 inserts into its split
+  face with a soldering iron.
 
 ## Assembly
 
 1. **On the bench:**
    - Screw both KQ2 fittings into the valve with a 19 mm spanner.
    - Screw both QSF fittings onto the flowmeter, each with a flat G1/2
-     washer. Tighten to **12 N·m at most**, holding the meter by its 12 mm
-     spanner flats.
-   - Laser-cut `base_back` and `base_front` from 6 mm cast acrylic and
-     solvent-weld them together. Drop the 4 M4 nuts into the hex pockets
-     from the wall side.
-   - Print the clamp bases, cap and straps (PETG). Press 2 dowel pins into
-     each clamp base, and melt the M4 inserts into its split face.
-2. Fix the station base to the wall with 8 × M6 screws. The vertical slots
-   give ±3 mm of adjustment and move both clamps together. The nuts are
-   trapped between the wall and the front layer.
-3. Push each clamp base's dowels into the plate and fix it with its 2 × M4
-   (through the channel floor / bore bottom) at 0.2 N·m.
-4. **Build the bench unit.** The link tube is cut exactly stop-to-stop, so it
-   can't be pushed in once the valve and the flowmeter are both clamped
-   (`assembly.py` section 11 shows the clash). On the bench, lying straight:
-   push the 140.3 mm link tube fully home into the flowmeter outlet QSF and
-   into the valve inlet KQ2. Check that the flow arrow points at the valve.
-5. Lower the whole unit into both clamp bases at once, with the housing and
-   M12 connector **on top** and the knob facing out.
-   - The fitting hexes can sit at any angle.
-   - Let the meter's downward spanner flat sit flat on the locating pad
-     under it. The valve can slide along its channel, so the unit settles
-     where the tube puts it.
-6. Slide the cap over the knob and fit 4 × M4×20 with DIN 125 washers; fit
-   both straps with M4×30 and washers. Tighten all of them evenly to
-   0.5 N·m. Re-torque all M4 after 24 h.
-7. Push the inlet and outlet tubes into place. Keep at least 100 mm of
-   straight inlet tube ahead of the meter, and support the tubes beyond the
-   station. Run the system at **6 bar or less** with water at 0–40 °C.
+     washer. Hold the meter by its 12 mm flats, and tighten to 12 N·m at
+     most: the meter body is plastic.
+   - Push the 140.3 mm link tube fully home into the flowmeter outlet QSF
+     and the valve KQ2, with the parts lying straight. The flow arrow on the
+     meter must point at the valve.
 
-### Tight margins
+   The link tube is cut exactly stop-to-stop, so it can't be fitted once
+   both parts are clamped. That's why the meter, tube and valve go in as one
+   unit.
+2. Screw the plate to the wall with 8 × M6. The vertical slots give ±3 mm of
+   adjustment and move both clamps together.
+3. Push each clamp base onto its dowel holes and fix it with 2 × M4 through
+   the channel floor at **0.2 N·m**. This torque has a narrow window: at
+   0.15 N·m the valve base can tip under a hard tube pull; at 0.3 N·m the
+   nut starts to crush the acrylic.
+4. Lower the bench unit into both clamp bases at once, with the meter's
+   housing and M12 connector on top and the valve knob facing out.
+   - The fitting hexes can sit at any angle; the straps grip the round body
+     next to the hex.
+   - The meter's lower 12 mm flat rests on the locating pad of its clamp
+     base. That sets its angle.
+5. Fit the valve cap with 4 × M4 × 20 and washers, and the two straps with
+   M4 × 30 and washers. Tighten evenly to **0.5 N·m**. Re-check after 24 h.
+6. Push in the inlet and outlet tubes. Keep at least 100 mm of straight tube
+   ahead of the meter, and support the tubes beyond the station.
 
-These pass, but with little room. Watch them when you change the design:
+## Tests on real parts
 
-- Worst-case link-tube strain is 0.45 %, against the 0.5 % limit.
-- The valve clamp base resists tipping under a 500 N tube pull by only
-  × 1.17.
-- The clamp-base M4 torque has a narrow window. At 0.15 N·m the valve base
-  can tip; at 0.3 N·m the nut overloads the acrylic. Use 0.2 N·m.
-- Contact pressures are close to the estimated allowables: washer on PETG
-  12.7 MPa (limit 15), nut on acrylic 9.4 MPa (limit 10).
-
-## Tests to do on real parts
-
-`assembly.py` checks the model. These need real parts, in this order:
+The model is checked in software (see [Design checks](#design-checks)). These
+tests need the real parts, in this order:
 
 | # | Test | How | Pass when |
 |---|---|---|---|
-| 1 | Measure the bought-in parts | Calipers on the valve body (18 × 18, chamfers, port chamfer), QSF round body Ø20.8 × 15.3, KQ2 hex | Within 0.1 mm of the model; otherwise update the part file and re-run |
-| 2 | Laser calibration coupon | Cut a strip with Ø4.1 dowel holes, Ø4.5 holes and a 7.2 AF hex at the plate spacing; measure the sheet thickness | Dowel slides in without play you can feel, nut drops in and doesn't turn, sheet 5.4–6.6 mm |
-| 3 | Print calibration coupon | Print a 20 mm slice of each clamp (channel, bore, dowel hole, insert hole) | Valve body and QSF body slide in with a slight drag; dowel presses in by hand vise; insert sets square |
-| 4 | Insert pull-out | Screw M4 into a set insert in a coupon, hang or pull | Holds 3 × the 625 N screw preload (about 1.9 kN) without pulling out |
-| 5 | Dry fit, unclamped | Assemble in the order above without tightening | Each step goes in by hand; bench unit drops into both bases without forcing the tube |
-| 6 | Clamp gap | After tightening, feeler gauge at the split faces of the cap and both straps | Gap still open (model: 0.85 mm) on all four corners |
-| 7 | Leak test | Fill with water, raise to 6 bar, hold 30 min | No drop, no weep at either G thread or tube |
-| 8 | Torque retention | Re-check all M4 after 24 h and after 1 week | Less than about 30 % loss; otherwise fit wave washers |
-| 9 | Pull and twist | 500 N axial pull on the outlet tube; 50 N sideways on the M12 cable | Nothing moves; the meter stays square on its pad |
-| 10 | Knob use | Turn the valve fully open and closed 20 times | Valve doesn't rotate or shift in the clamp |
-| 11 | Thermal | Run with water at 5 °C and at 40 °C for an hour each | No leaks, no visible tube bow, clamps still tight |
-| 12 | Alignment | With the straps loose, look along the link tube; the meter should not jump when the straps are tightened | No visible bend or jump (model worst case 1.24 mm, 99.7 % 0.73 mm) |
+| 1 | Measure the bought-in parts | Calipers on the valve body (18 × 18, chamfers, port chamfer), the QSF round body (Ø20.8 × 15.3), the KQ2 hex, and the meter's end faces | Within 0.1 mm of the model; otherwise update the part file and re-run the checks |
+| 2 | Laser coupon | Cut a strip with Ø4.1 dowel holes, Ø4.5 holes and a 7.2 AF hex at the plate spacing; measure the sheet | Dowel slides in with no play you can feel; nut drops in and doesn't turn; sheet 5.4–6.6 mm |
+| 3 | Print coupon | Print a 20 mm slice of each clamp (channel, bore, dowel hole, insert hole) | Valve body and QSF body slide in with slight drag; dowel presses in with a hand vise; insert sets square |
+| 4 | Insert pull-out | M4 into a set insert in the coupon, pull | Holds about 1.9 kN (3 × the 625 N screw preload) |
+| 5 | Dry fit | Assemble without tightening | Every step goes in by hand; the bench unit drops into both bases without forcing the tube |
+| 6 | Clamp gap | Feeler gauge at the split faces of the cap and both straps after tightening | Gap still open at all four corners (model: 0.85 mm) |
+| 7 | Leak | Fill with water, 6 bar, hold 30 min | No pressure drop, no weep at the threads or tubes |
+| 8 | Torque retention | Re-check all M4 after 24 h and after 1 week | Less than about 30 % loss; otherwise add wave washers |
+| 9 | Pull and twist | 500 N axial pull on the outlet tube; 50 N sideways on the M12 cable | Nothing moves; the meter stays on its pad |
+| 10 | Valve use | Open and close the valve fully 20 times | The valve doesn't turn or shift in its clamp |
+| 11 | Thermal | Run with water at 5 °C and at 40 °C, an hour each | No leaks, no visible tube bow, clamps still tight |
+| 12 | Alignment | With the straps loose, sight along the link tube, then tighten | No visible bend, and the meter doesn't jump (model worst case 1.24 mm offset) |
+
+## How the design works
+
+- **Meter upstream of the valve.** The valve keeps the meter under
+  back-pressure, which ifm asks for to avoid cavitation, and the valve's
+  turbulence stays downstream of the measurement. The meter is directional
+  (arrow on the pipe). The valve is not: Tognella's datasheet shows it
+  double-acting, so either port can be the inlet. (RS's product text says
+  "single-acting"; that is wrong.)
+- **Straight runs.** ifm wants at least 15 × DN = 90 mm of straight pipe
+  before and after the meter, and advises against mounting it directly in
+  front of a valve (manual 11592037, sec. 4). The link tube has 100 mm of free straight length.
+- **Meter position.** Pipe horizontal, housing and M12 connector on top:
+  ifm's recommended position (manual Fig. 1). The plate hangs on the wall
+  with the pipe parallel to it.
+- **Modular clamps.** The plate has holes only. Each clamp base is located
+  by 2 steel dowels and held by 2 M4 into captive nuts. Its cap or straps
+  screw into heat-set inserts in the base. The base screws sit under the
+  channel floor, so they are reachable until the component goes in.
+- **Valve clamp.** The square valve body sits in a channel split between
+  base and cap. The halves stop 1.0 mm short of each other, more than the
+  2 × 0.2 mm print tolerance, so the cap always bears on the valve, not on
+  the base. The knob comes out through a Ø27.5 hole in the cap.
+- **Flowmeter clamp.**
+  - The straps grip the round Ø20.8 body of each QSF fitting, never the hex.
+    How far a fitting turns when it is tightened decides where its hex ends
+    up, so the hex angle can't be controlled. A check spins each fitting
+    through a full hex pitch to prove any angle fits.
+  - The meter's angle comes from the meter itself: its lower 12 mm flat
+    rests on a pad on the clamp base. Gravity keeps it there; the pad
+    carries no screw load.
+  - All clamp load goes through the brass fittings, so tube loads never pass
+    through the meter's plastic threads.
+  - The QSF fittings are tightened on the bench, with the meter held by its
+    flats. The printed straps are not meant to take the thread torque.
+- **No strain on the link tube.** The tube must be straight, with no side
+  offset and no axial load:
+  - Both clamp bases locate on dowel holes cut in one pass in the same plate
+    layer, and both flowmeter pedestals are one printed part. At worst-case
+    tolerances (print ±0.2, laser ±0.1), the side offset is 1.24 mm. That
+    bends the 100 mm free tube by 0.45 %, under the 0.5 % limit.
+  - Valve and meter sit on their cradle floors with the same 0.15 mm
+    clearance, so both axes are the same distance from the wall.
+  - The tube is cut stop-to-stop. The straps allow ±1.65 mm of axial float:
+    push the tube home first and tighten the straps after, and the meter
+    settles where the tube puts it.
+
+### Tight margins
+
+These pass, but with little room. Re-check them after any change nearby:
+
+- Worst-case link-tube strain: 0.45 % against a 0.5 % limit.
+- Valve clamp base against tipping under a 500 N tube pull: × 1.17.
+- Clamp-base screw torque: 0.2 N·m (0.15 lets the valve base tip; 0.3
+  overloads the acrylic).
+- Contact pressure: washer on PETG 12.7 MPa (limit 15), nut on acrylic
+  9.4 MPa (limit 10).
+
+## Open items
+
+- **Seal at the meter's end faces.** The design uses a flat G1/2 washer
+  between the meter and each QSF fitting. ifm's 3D model shows a seal-ring
+  groove in each end face (ID 12.85, OD 16.75, 1.2 deep). With that groove,
+  a flat washer only bears on two narrow lands, Ø11.7–12.65 and Ø16.95–18.4.
+  Check on a real meter, or in ifm manual 11592037, whether it ships with
+  seal rings in the grooves before ordering washers.
+- **Material values are estimates** (no single source): PETG 15 MPa and
+  acrylic 10 MPa allowable contact pressure, friction 0.3 PETG on brass,
+  print ±0.2 mm, laser ±0.1 mm, tube strain limit 0.5 %, tube expansion
+  150e-6/K, PETG heat limit 70 °C, 100 N per wall plug. The clamp gaps,
+  pressures and strain checks depend on them; the coupons and tests above
+  confirm them.
+- **Valve port chamfer.** The KQ2 gasket seats on the chamfer of the female
+  thread (SMC catalogue). Check that the valve ports have one.
+- **Load cases** (500 N tube pull, 50 N cable pull, plasterboard wall) are
+  engineering judgement agreed with the owner, not from a standard.
+
+## Where the part dimensions come from
+
+Every bought-in part is modelled from its vendor's data and compared with the
+vendor's own 3D model by `tools/cad_compare.py`. Features that something
+touches (threads, sealing faces, clamped diameters, spanner flats) must match
+within 0.02 mm; the rest of the outline within 0.5 mm.
+
+| Part | Sources | Result |
+|---|---|---|
+| ifm SV3051 | ifm datasheet SV3051-00, ifm STEP CAD_STP_300_0358, manual 11592037 (torque 12 N·m, straight runs, orientation) | All dimensions read off the STEP. G1/2 ends, end-face groove, shoulder, bore, 16 AF hex and 12 AF flats within 0.001 mm; outline within 0.32 mm. The datasheet lists a display; this unit has none, so none is modelled |
+| Festo QSF-1/2-12-B | Festo datasheet 190653, RS/TraceParts 3D model | Round body, hex and port face within 0.003 mm; outline 0.01 mm. Insertion depth 23.3 mm |
+| SMC KQ2H12-U02A | SMC KQ2 catalogue, RS/TraceParts 3D model | Thread, undercut, seal face and hex within 0.001 mm |
+| RS 283-8289 valve | Tognella FT 1251/2-01 datasheet, table type 14 | Body 18 × 18 × 46, G1/4 ports 12 deep, M17×1 bush, Ø22 knob, height 57 from the table. Edge chamfer 2.5, boss 18 × 2.5 and the back groove scaled from the drawing (±0.3 mm). No vendor 3D model exists |
+
+The comparison images are in each part folder (`cad_check.png`,
+`drawing_check.png`).
+
+## Working with the code
+
+### Setup
+
+Needs Python 3.12 and [uv](https://docs.astral.sh/uv/).
+
+```bash
+uv sync
+```
+
+### Commands
+
+```bash
+uv run python assembly.py           # build the station, run the design checks (~1 min)
+uv run pytest                       # tests (-m "not slow" for the quick ones)
+uv run python tools/export_step.py  # output/step/: one STEP per part, assembly STEP, bom.csv
+uv run python tools/render.py       # output/assembly.png, output/components.png
+uv run python flowmeter_clamp/flowmeter_clamp.py   # plate DXFs + flowmeter clamp sizes
+uv run python valve_clamp/clamp.py                 # valve clamp sizes
+uv run ruff check .
+```
+
+To look at the model interactively, start the OCP CAD Viewer (VS Code
+extension, or `uv run python -m ocp_vscode` and open
+http://127.0.0.1:3939/viewer), then:
+
+```bash
+uv run python tools/view.py            # whole station
+uv run python tools/view.py exploded   # pulled apart in assembly order
+uv run python tools/view.py flowmeter  # or valve, connector, base, cap, flowmeter_connector, flowmeter_fitted
+```
+
+### Repository layout
+
+```
+assembly.py            places every part, runs the design checks, writes output/
+valve/                 needle valve model
+valve_connector/       SMC KQ2 fitting model
+valve_clamp/           valve clamp base + cap; shared constants (tolerances, hardware)
+flowmeter/             ifm SV3051 model
+flowmeter_connector/   Festo QSF fitting model
+flowmeter_clamp/       flowmeter clamp base + straps; station plate and its DXFs
+tools/checks.py        reusable check library (interference, access, stacks, loads, printing)
+tools/export_step.py   STEP export and BOM
+tools/render.py        PNG renders
+tools/view.py          send the model to the OCP CAD Viewer
+tools/cad_compare.py   compare a part model with the vendor's 3D model
+tools/drawing_check.py overlay a part model on its datasheet drawing
+tools/fetch_rs_cad.py  unpack an RS website 3D model
+tests/                 pytest
+output/                generated, don't edit: STEP files, BOM, renders
+```
+
+Each part file has its dimensions as named constants at the top, each with
+its source, and `make_*()` functions that return the solid. The clamps are
+sized from the part constants, so a corrected part dimension carries through
+to the clamps.
+
+Coordinates: the wall is Y = 0 with +Y out of the wall, Z is up, and the
+flow axis runs along X, 30 mm from the wall. Flow goes towards −X, which is
+left to right for someone facing the wall. Units are mm. Each part file's
+docstring gives its own local frame.
+
+### Design checks
+
+`assembly.py` prints PASS or FAIL for each check and exits non-zero if any
+fail. The checks cover:
+
+- interference between every pair of parts;
+- clamping: each cap or strap closes on its part before it reaches the base,
+  slip and rotation resistance, and contact pressure on the plastics;
+- tool access to every screw, and operator access to the knob, the release
+  collars and the M12 plug;
+- fitting engagement, seal seating and flow direction (read from the placed
+  geometry, so a meter mounted backwards fails);
+- link-tube alignment and strain: worst case, RSS, Monte Carlo and thermal;
+- the flowmeter clamp at every fitting hex angle;
+- screw preload, tipping under a 500 N tube pull, wall-screw loads;
+- that every assembly step can move into place in order without a collision;
+- printability: no support needed, minimum wall thickness, bed size.
+
+`uv run pytest` runs the same checks as tests. It also breaks the design on
+purpose (meter mounted backwards, link tube fitted last, looser tolerances)
+and checks that the matching check fails.
+
+## Maintaining the design
+
+### After any geometry change
+
+1. `uv run python assembly.py` must end with `ALL CHECKS PASS`. If a check
+   fails, fix the design. Don't loosen a limit or delete a check to get a
+   pass; if a check is wrong, fix the check and say why in the commit.
+2. `uv run pytest` must pass. A new or changed check needs a negative test
+   in `tests/test_assembly.py` that breaks the design and expects that check
+   to fail.
+3. Run `tools/export_step.py` and `tools/render.py` (and
+   `flowmeter_clamp/flowmeter_clamp.py` if the plate changed), then look at
+   `output/assembly.png` and `output/components.png`. A passing check can
+   still hide a wrong shape.
+4. `uv run ruff check .` must be clean.
+5. Commit and push `output/` with the change, so the online viewer and the
+   manufacturing files match the code.
+
+### Replacing or correcting a bought-in part
+
+- Every dimension must come from a datasheet, catalogue or vendor 3D model,
+  and its constant says which. Mark anything else `ESTIMATE` in the code.
+- If you measure a real part with calipers, change the part file, not the
+  clamp. The clamps resize from the part constants.
+- Re-run the vendor comparison and look at the image it writes:
+
+  ```bash
+  uv run python tools/cad_compare.py flowmeter <ifm STEP file>
+  uv run python tools/drawing_check.py flowmeter <SV3051 datasheet pdf>
+  ```
+
+  Presets exist for `valve_connector`, `flowmeter_connector` and
+  `flowmeter`. Keep downloaded vendor files outside the repo; only the
+  comparison images are kept here.
+- Where to get the vendor data:
+  - ifm publishes the SV3051 datasheet, manual 11592037 and STEP model on
+    the product page (Downloads tab).
+  - RS product pages block scripts; open them in a browser. Datasheet PDFs
+    on `docs.rs-online.com` download normally.
+  - RS's 3D viewer models are simplified TraceParts meshes, solid inside and
+    without bores: good for the outline only. `tools/fetch_rs_cad.py`
+    unpacks one; its docstring explains how to get the link.
+
+### Adding a part to the station
+
+- Give it a `make_*()` function in its part file, and add it in
+  `assembly.build()` with a name that follows the existing pattern
+  (`valve_knob`, `fm_clamp_strap_0`, `m4_nut_*`, ...). The checks, the
+  colours in `tools/render.py`, the exploded view in `tools/view.py` and
+  `tools/dims.py` all look parts up by name.
+- Add it to an assembly step in `assembly.ASSEMBLY_ORDER`, or the
+  assembly-order check fails.
+- Add it to `SUBASSEMBLIES`, `components()` and `QTY_PATTERN` in
+  `tools/export_step.py`, or the export fails.
+
+### Rules that keep the design working
+
+- Never clamp or locate on a fitting's hex: its angle depends on how tight
+  the thread is. Clamp on round features and take angles from features on
+  the part body.
+- The link tube must stay straight and unstrained: both clamp bases dowel
+  into the same plate layer, the valve and meter pocket clearances stay
+  equal, and the tube length comes from the two tube stops, never a typed
+  number.
+- Threads are modelled without helices: female threads at the major
+  diameter, screw threads at the minor diameter, so threaded joints don't
+  show as interference.
+- Screws go into heat-set inserts (printed parts) or captive nuts (plate),
+  never into tapped plastic. Keep contact pressures under the PETG and
+  acrylic allowables in `valve_clamp/clamp.py`.
+- Caps and straps are modelled in two positions: clamped (in the assembly)
+  and as printed (for export). The 1.0 mm split gap must stay larger than
+  the clamp travel plus twice the print tolerance.
+- Part folders are not Python packages. Scripts add the repo root and part
+  folders to `sys.path`; keep that pattern.
