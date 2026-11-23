@@ -9,7 +9,7 @@ import math
 
 import numpy as np
 import pytest
-from build123d import Box, Cylinder, Pos, Rot
+from build123d import Box, Cylinder, Pos, Rot, export_step
 
 from tools import cad_compare as CC
 from tools import drawing_check as DC
@@ -90,6 +90,21 @@ def test_compare_skip_zone_is_not_judged(tmp_path):
     write_stl(vendor, tmp_path / "v.stl")
     spec = dict(SPEC, zones=[{"name": "thread", "kind": "skip", "cyl": ["z", 1.9, 3.1, -6, 6]}])
     assert CC.compare(spec, tmp_path / "v.stl", quiet=True)["pass"]
+
+
+def test_step_seams_are_not_features(tmp_path):
+    # a STEP cylinder has a seam line wherever its author started it; ours starts
+    # elsewhere. A seam is not a feature edge, so it must not fail the edge check
+    export_step(Box(20, 20, 10) - Rot(0, 0, 37) * Cylinder(3, 20), tmp_path / "v.step")
+    assert CC.compare(dict(SPEC), tmp_path / "v.step", quiet=True)["pass"]
+
+
+def test_step_fit_zone_off_by_005_still_fails(tmp_path):
+    export_step(Box(20, 20, 10) - Rot(0, 0, 37) * Cylinder(3.05, 20), tmp_path / "v.step")
+    spec = dict(SPEC, zones=[{"name": "bore", "kind": "fit", "cyl": ["z", 2.9, 3.2, -6, 6]}])
+    res = CC.compare(spec, tmp_path / "v.step", quiet=True)
+    assert not res["pass"]
+    assert not res["bore [vendor edges->our edges]"][5]
 
 
 def test_compare_finds_the_misaligned_frame(tmp_path):

@@ -257,10 +257,17 @@ def sharp_vertices(tris: np.ndarray, angle: float = SHARP_ANGLE) -> np.ndarray:
 def brep_feature_points(shape, per_edge: int = 9, angle: float = SHARP_ANGLE) -> np.ndarray:
     """Points along a B-rep's real feature edges: edges where two faces meet at
     more than `angle` degrees. Seams and splits between coplanar or tangent faces
-    (a vendor face divided into rings for colour or marking) are not features."""
+    (a vendor face divided into rings for colour or marking) are not features.
+    A seam is listed only once by `edges()`, so it is found by BRep_Tool.IsClosed."""
+    from OCP.BRep import BRep_Tool
+    from OCP.TopoDS import TopoDS
+
     faces_of: dict = {}
     for f in shape.faces():
         for e in f.edges():
+            if BRep_Tool.IsClosed_s(TopoDS.Edge(e.wrapped), TopoDS.Face(f.wrapped)):
+                faces_of[e] = [f, f]  # seam: the same face on both sides
+                continue
             faces_of.setdefault(e, []).append(f)
     cos = np.cos(np.radians(angle))
     pts = []
