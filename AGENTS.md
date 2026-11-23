@@ -27,13 +27,13 @@ then a straight link tube, then the flow control valve, all on one wall base.
 - **The clamps are modules on a plain station base.** Each printed clamp
   base is located on the plate by 2 dowel pins and fixed by 2 × M4 from the
   front into captive nuts; its clamp head screws into heat-set inserts in it.
-- `flowmeter/flowmeter.py`: ifm SV3051 vortex flowmeter. Its main dimensions
-  come from the ifm datasheet drawing, and its envelope is checked against
-  ifm's own STEP model. No display is modelled (the user confirmed there is none).
-  Against ifm's STEP (`tools/cad_compare.py flowmeter`) it does NOT yet meet
-  the model-component rule: the housing is outside the 0.5 mm envelope, the
-  end faces lack ifm's 1.2 mm deep annular groove, and the flats are 12.06
-  apart in ifm's CAD vs 12 on the datasheet. See README "Verification status".
+- `flowmeter/flowmeter.py`: ifm SV3051 vortex flowmeter. Its dimensions are
+  read off ifm's own STEP model (CAD_STP_300_0358) and agree with the ifm
+  datasheet drawing. `tools/cad_compare.py flowmeter` passes: fit-critical
+  features (G1/2 ends with the end-face groove, shoulder, bore, hex, 12 AF
+  flats) within 0.001 mm, envelope 0.32 mm. No display is modelled (the user
+  confirmed there is none). Which seal the end-face groove takes is still
+  open (README "Verification status").
 - `flowmeter_connector/flowmeter_connector.py`: Festo QSF-1/2-12-B, a G1/2
   female push-in fitting. Dimensions come from the Festo catalogue and are
   checked against the RS-website 3D model (fit-critical within 0.003 mm,

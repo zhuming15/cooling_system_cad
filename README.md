@@ -31,7 +31,7 @@ The viewer shows what was last pushed: after a design change, run
 | ISO 4762 M4×20 / M4×30 + DIN 125 washer into heat-set M4 inserts (cap, straps), 0.5 N·m | — | 4 + 4 (+8 inserts) |
 | Heat-set insert M4 × 8.1 (ruthex RX-M4x8.1 or similar, Ø5.6 hole) | — | 8 |
 | M6 socket screw + wall plug (wall fixing) | — | 8 |
-| G1/2 flat sealing washer, OD ≤ 18.6, ID ≥ 11.5, ~1 mm, FKM/EPDM | — | 2 |
+| G1/2 flat sealing washer, OD ≤ 18.6, ID ≥ 11.5, ~1 mm, FKM/EPDM (open: the meter's end faces have a seal-ring groove, see Verification status) | — | 2 |
 | 12 × 8 mm tube: inlet (≥ 100 mm straight), 140.3 mm link, outlet | — | — |
 
 ### Design
@@ -243,14 +243,15 @@ The table shows what was checked against a primary source (checked
 | QSF-1/2-12-B geometry, 23.3 mm insertion depth | **Verified (exact)** | Festo datasheet 190653 + RS/TraceParts model: round body, hex and port face within 0.003 mm, envelope 0.01 mm (`tools/cad_compare.py`, 2026-11-23) |
 | QSF water limit: **0.6 MPa (6 bar) at 50 °C at most** | **Verified** | Festo datasheet 190653 |
 | QSF round body Ø20.8 × 15.3 (where the straps clamp) | Verified (CAD) / **measure one real fitting** | Festo D5 + RS/TraceParts model |
-| SV3051 envelope 77 × 30.2 × 52.7, M12 position, pipe (Ø15.4 with flats 12 apart; 16 AF hex spanner section), housing widths | Overall sizes **verified**; detail **fails the 0.5 mm envelope rule** | ifm datasheet + ifm STEP (`tools/cad_compare.py flowmeter`, 2026-11-23): ifm surfaces up to 1.9 mm outside the model, model material up to 7.6 mm from ifm's (blocky lower housing). Rework the housing from the STEP |
-| SV3051 end faces (where the G1/2 sealing washer seats) | **Conflict, check the real part** | ifm STEP: an annular groove in each end face, r 6.32–8.47 (Ø12.6–16.9), 1.2 mm deep, filleted, likely for a seal ring; not on the datasheet, not modelled. The face itself ends at Ø18.4 (model Ø18.8, scaled from the drawing), under the washer's OD ≤ 18.6 |
-| SV3051 spanner flats (locating pad) | **Conflict, 0.03 mm** | datasheet: 12; ifm STEP: 12.06 apart. The pad sits 0.03 mm lower than the model shows |
+| SV3051 envelope 77 × 30.2 × 52.73, M12 position and socket, housing, pipe, flow arrows, flow passage | **Verified (envelope)** | ifm datasheet + ifm STEP CAD_STP_300_0358, every dimension read off its faces (`tools/cad_compare.py flowmeter`, 2026-11-23): ifm surfaces within 0.18 mm of the model, model surfaces within 0.32 mm of ifm's (limit 0.5). Left out: blends of r ≤ 0.6 on the housing, the pin holes in the M12 socket floor |
+| SV3051 G1/2 ends: shoulder (QSF seat) at 13 from each end, thread at major Ø20.955 with 45° chamfers, lead-in Ø18.6 × 2, end face, inlet bore Ø11.5 × 10 | **Verified (exact)** | ifm datasheet + ifm STEP: 0.000 mm on surfaces and feature edges (`tools/cad_compare.py flowmeter`, 2026-11-23). ifm models the thread at the major diameter too, so no skip zone |
+| SV3051 end-face groove: ID 12.85, OD 16.75, 1.2 deep, r 0.25 at the bottom, r 0.1 on the face edges | **Verified (exact), modelled** | ifm STEP, 0.000 mm. Not on the datasheet. Most likely a seal-ring groove (ifm lists an FKM seal among the wetted parts) |
+| SV3051 spanner flats 12 AF (locating pad), x −19.24 … 25.5; 16 AF hex x 15.5 … 25.5 | **Verified (exact)** | datasheet: 12; ifm STEP: faces at z = −6.000 and +6.000, 0.000 mm on surfaces and edges. The earlier "12.06" was a measuring artefact: the model's spanner section started at x 15.6, ifm's at 15.5 (now 15.5) |
 | SV3051 tightening torque 12 N·m | **Verified** | ifm operating instructions 11592037, Tab. 1 |
 | SV3051 straight runs at least 15 × DN; not directly in front of a valve | **Verified, now designed in** | ifm operating instructions, sec. 4 and 4.1 |
 | SV3051 mounting orientation: horizontal pipe, housing on top | **Decided by you; matches ifm** | ifm operating instructions 11592037, Fig. 1 (recommended position) |
 | SV3051 display | **Confirmed by you: no display** | Not modelled. (The RS/ifm datasheet text mentions a 1.44" display; if one turns out to be there, it sits on the lid, which faces the operator.) |
-| SV3051 sealing: a flat G1/2 washer at the meter end face | **Confirmed by you** | Washer OD ≤ 18.6, ID ≥ 11.5, about 1 mm, FKM/EPDM |
+| SV3051 sealing at the end face: flat G1/2 washer, or an O-ring in the end-face groove | **Open: check the real meter or ifm manual 11592037** | You confirmed a flat washer (OD ≤ 18.6, ID ≥ 11.5, about 1 mm, FKM/EPDM) before the groove was known. With the groove, a flat washer bears only on two lands, Ø11.7–12.65 and Ø16.95–18.4 (0.5 and 0.7 mm wide). Check whether the meter comes with seal rings in the grooves (ifm's manual could not be downloaded here: 403) |
 | M4 torque → preload: 0.5 N·m → 625 N (caps), 0.2 N·m → 250 N (bases) | Derived | T = K·F·d, K 0.2; limited by the plastics, not the screws. Base torque has a narrow window: 0.15 N·m lets the valve base tip at 500 N, 0.3 N·m overloads the acrylic under the nut |
 | Plastics: PETG 15 MPa / acrylic 10 MPa sustained contact, μ 0.3 PETG on brass, print ±0.2 mm, laser ±0.1 mm | **Estimate, confirm** | Typical values, no single source; they drive the split gap, tolerance-strain and pressure checks |
 | Heat-set insert M4 × 8.1, Ø5.6 hole | Typical | ruthex RX-M4x8.1 dimensions; check the insert you buy |
