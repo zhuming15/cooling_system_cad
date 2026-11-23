@@ -144,3 +144,17 @@ def test_report_counts_failures():
     r.check("bad", False, "why")
     assert r.fails == 1
     assert r.failed() == [("x", "bad", False, "why")]
+
+
+@pytest.mark.parametrize("axis", [(1, 0, 0), (0, 0, -1), (0.6, 0.8, 0)])
+def test_sweep_box_pruning_keeps_contacts_for_each_direction(axis):
+    moving = Box(2, 2, 2)
+    stop = Pos(*(-3 * v for v in axis)) * Box(2, 2, 2)
+    far = Pos(100, 100, 100) * Box(2, 2, 2)
+    parts = {"moving": moving, "stop": stop, "far": far}
+    hits = CK.sweep(parts, ["moving"], ["stop", "far"], axis=axis, travel=6, step=1)
+    expected_first = next(
+        d for d in range(6, 0, -1) if CK.overlap(Pos(*(-d * v for v in axis)) * moving, stop) > 1e-3
+    )
+    assert hits == {("moving", "stop"): expected_first}
+    assert CK.sweep(parts, ["moving"], ["far"], axis=axis, travel=6) == {}

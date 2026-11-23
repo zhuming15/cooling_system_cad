@@ -108,12 +108,30 @@ def sweep(
     Returns {(moving part, installed part): distance from home at first contact}.
     Empty means that assembly step goes in without a collision.
     """
+    # A translated box has exactly the translated bounds. Cache these once:
+    # rebuilding OCCT boxes for every pair at every step dominates detailed
+    # connector sweeps. Potential contacts still use the same solid Boolean,
+    # sampling positions and volume threshold below.
+    bounds = {
+        n: (tuple(parts[n].bounding_box().min), tuple(parts[n].bounding_box().max))
+        for n in set(moving) | set(installed)
+    }
     hits, d = {}, travel
     while d > 1e-9:
         off = Pos(-axis[0] * d, -axis[1] * d, -axis[2] * d)
         for m in moving:
-            sm = off * parts[m]
+            low, high = bounds[m]
+            shift = tuple(-v * d for v in axis)
+            sm = None
             for n in installed:
+                nl, nh = bounds[n]
+                if any(
+                    high[i] + shift[i] < nl[i] - 1e-9 or low[i] + shift[i] > nh[i] + 1e-9
+                    for i in range(3)
+                ):
+                    continue
+                if sm is None:
+                    sm = off * parts[m]
                 if (m, n) not in hits and overlap(sm, parts[n]) > 1e-3:
                     hits[(m, n)] = d
         d -= step
