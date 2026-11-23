@@ -19,3 +19,4 @@ file,component,qty,make,frame
 18_m4_nut.step,M4 hex nut (captive in plate),4,bought-in (standard),"as placed, moved to origin"
 19_dowel.step,Dowel pin 4 m6 x 12,4,bought-in (standard),"as placed, moved to origin"
 20_wall_screw.step,M6 wall screw,8,bought-in (standard),"as placed, moved to origin"
+21_electrical_msap-04bffc-sr7001.step,M12 A-coded 4-contact elbow Amphenol LTW MSAP-04BFFC-SR7001,1,bought-in,part-local frame (see part file docstring)
