@@ -257,6 +257,10 @@ and the README "Tight margins" list must stay current:
 - `RegularPolygon(r, 6, major_radius=False)` puts the hex corners on local ±x.
   Add `rotation=30` to put the corners on local ±y.
 - `BoundingBox.add()` returns a new box; it doesn't modify the original.
+- In build123d 0.13, `BoundBox.overlaps()` excludes containment and equal
+  boxes. Do not use it to reject collision candidates; use the inclusive
+  bounds logic in `tools/checks.py`. Bounds caches are local to one check
+  invocation so changed solids cannot reuse stale measurements.
 - `ocp_viewer.show()` does nothing and raises no error when no viewer is
   running. That's why `tools/view.py` checks the port first.
 

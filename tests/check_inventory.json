@@ -1,0 +1,286 @@
+{
+  "STATION-001": {
+    "section": "check_interference",
+    "name": "no solid interference"
+  },
+  "STATION-002": {
+    "section": "check_valve_clamp",
+    "name": "cap pocket closes onto valve before gap"
+  },
+  "STATION-003": {
+    "section": "check_valve_clamp",
+    "name": "valve seated on base cradle & cap flat"
+  },
+  "STATION-004": {
+    "section": "check_valve_clamp",
+    "name": "anti-rotation: square body in U-channel"
+  },
+  "STATION-005": {
+    "section": "check_valve_clamp",
+    "name": "channel corner radius fits in body chamfer"
+  },
+  "STATION-006": {
+    "section": "check_valve_clamp",
+    "name": "axial slip resistance > 500 N tube pull"
+  },
+  "STATION-007": {
+    "section": "check_valve_clamp",
+    "name": "cap pressure on the printed part < PETG allowable"
+  },
+  "STATION-008": {
+    "section": "check_wall_mounting",
+    "name": "nothing but wall screws behind wall plane"
+  },
+  "STATION-009": {
+    "section": "check_wall_mounting",
+    "name": "base back face flush on wall"
+  },
+  "STATION-010": {
+    "section": "check_wall_mounting",
+    "name": "8 wall screws: straight hex-key access"
+  },
+  "STATION-011": {
+    "section": "check_wall_mounting",
+    "name": "8 clamp screws: hex-key access from front"
+  },
+  "STATION-012": {
+    "section": "check_valve_access",
+    "name": "knob stands proud of clamp (grip length)"
+  },
+  "STATION-013": {
+    "section": "check_valve_access",
+    "name": "18 mm finger clearance all round the knob"
+  },
+  "STATION-014": {
+    "section": "check_valve_access",
+    "name": "cap window passes over knob (assembly)"
+  },
+  "STATION-015": {
+    "section": "check_valve_access",
+    "name": "scale cap readable / line of sight from front"
+  },
+  "STATION-016": {
+    "section": "check_valve_access",
+    "name": "push-in release collar finger room to wall >= 15"
+  },
+  "STATION-017": {
+    "section": "check_valve_access",
+    "name": "fittings clear of clamp (tube release / wrench)"
+  },
+  "STATION-018": {
+    "section": "check_connectors",
+    "name": "A: thread engaged, bottoms short of port"
+  },
+  "STATION-019": {
+    "section": "check_connectors",
+    "name": "A: fitting coaxial with valve port"
+  },
+  "STATION-020": {
+    "section": "check_connectors",
+    "name": "A: 12 mm tube pushed home to the tube stop"
+  },
+  "STATION-021": {
+    "section": "check_connectors",
+    "name": "B: thread engaged, bottoms short of port"
+  },
+  "STATION-022": {
+    "section": "check_connectors",
+    "name": "B: fitting coaxial with valve port"
+  },
+  "STATION-023": {
+    "section": "check_connectors",
+    "name": "B: 12 mm tube pushed home to the tube stop"
+  },
+  "STATION-024": {
+    "section": "check_connectors",
+    "name": "seal face lands on port edge within gasket squeeze"
+  },
+  "STATION-025": {
+    "section": "check_connectors",
+    "name": "flow path not restricted by the fittings"
+  },
+  "STATION-026": {
+    "section": "check_connectors",
+    "name": "19 mm spanner fits fitting hex clear of the clamp"
+  },
+  "STATION-027": {
+    "section": "check_flow_direction",
+    "name": "flowmeter arrow points along system flow"
+  },
+  "STATION-028": {
+    "section": "check_flow_direction",
+    "name": "flowmeter upstream of the valve"
+  },
+  "STATION-029": {
+    "section": "check_flow_direction",
+    "name": "housing / M12 on top, horizontal pipe (ifm Fig. 1)"
+  },
+  "STATION-030": {
+    "section": "check_alignment",
+    "name": "fitting axes coaxial (no lateral offset)"
+  },
+  "STATION-031": {
+    "section": "check_alignment",
+    "name": "tube on that axis, dead straight"
+  },
+  "STATION-032": {
+    "section": "check_alignment",
+    "name": "tube length = stop-to-stop (no axial strain)"
+  },
+  "STATION-033": {
+    "section": "check_alignment",
+    "name": "straight runs >= 15 x DN (ifm manual Fig. 2)"
+  },
+  "STATION-034": {
+    "section": "check_alignment",
+    "name": "tube fully inserted in both fittings"
+  },
+  "STATION-035": {
+    "section": "check_alignment",
+    "name": "both clamp bases on one station-plate layer"
+  },
+  "STATION-036": {
+    "section": "check_alignment",
+    "name": "clamped axis heights equal by design"
+  },
+  "STATION-037": {
+    "section": "check_alignment",
+    "name": "link tube strain at worst-case tolerances"
+  },
+  "STATION-038": {
+    "section": "check_alignment",
+    "name": "axial float lets meter follow the tube"
+  },
+  "STATION-039": {
+    "section": "check_flowmeter_clamp",
+    "name": "straps close onto round body before gap"
+  },
+  "STATION-040": {
+    "section": "check_flowmeter_clamp",
+    "name": "both fittings seated in cradle bore and strap"
+  },
+  "STATION-041": {
+    "section": "check_flowmeter_clamp",
+    "name": "strap sits on the round section only"
+  },
+  "STATION-042": {
+    "section": "check_flowmeter_clamp",
+    "name": "fits any hex angle (fittings 0..60 deg)"
+  },
+  "STATION-043": {
+    "section": "check_flowmeter_clamp",
+    "name": "meter flat rests on locating pad (meter square)"
+  },
+  "STATION-044": {
+    "section": "check_flowmeter_clamp",
+    "name": "meter touches only the pad (no clamp load on plastic)"
+  },
+  "STATION-045": {
+    "section": "check_flowmeter_holding",
+    "name": "tube pull held by each strap > 500 N"
+  },
+  "STATION-046": {
+    "section": "check_flowmeter_holding",
+    "name": "meter can't rotate under a 50 N cable pull"
+  },
+  "STATION-047": {
+    "section": "check_flowmeter_holding",
+    "name": "bore pressure on the printed part < PETG allowable"
+  },
+  "STATION-048": {
+    "section": "check_flowmeter_access",
+    "name": "M12 cable plug envelope (dia 20 x 55) clear"
+  },
+  "STATION-049": {
+    "section": "check_flowmeter_access",
+    "name": "QSF release rings: free to press from the front"
+  },
+  "STATION-050": {
+    "section": "check_flowmeter_access",
+    "name": "12 AF spanner flats reachable (hold meter when tightening)"
+  },
+  "STATION-051": {
+    "section": "check_electrical_interconnect",
+    "name": "M12 plug coaxial with flowmeter"
+  },
+  "STATION-052": {
+    "section": "check_electrical_interconnect",
+    "name": "M12 seal at mating face"
+  },
+  "STATION-053": {
+    "section": "check_electrical_interconnect",
+    "name": "M12 A-code keys aligned"
+  },
+  "STATION-054": {
+    "section": "check_electrical_interconnect",
+    "name": "M12 plug insertion clear of station"
+  },
+  "STATION-055": {
+    "section": "check_modules",
+    "name": "station plate: 2 flat layers, holes only (laser)"
+  },
+  "STATION-056": {
+    "section": "check_modules",
+    "name": "each clamp base: 2 dowels in the plate + 2 M4"
+  },
+  "STATION-057": {
+    "section": "check_modules",
+    "name": "4 mount M4: full nut engagement, tip off the wall"
+  },
+  "STATION-058": {
+    "section": "check_modules",
+    "name": "mount M4 reachable before the component goes in"
+  },
+  "STATION-059": {
+    "section": "check_modules",
+    "name": "8 cap/strap M4: full insert engagement"
+  },
+  "STATION-060": {
+    "section": "check_modules",
+    "name": "screw bearing on PETG / acrylic < allowable"
+  },
+  "STATION-061": {
+    "section": "check_modules",
+    "name": "clamp base can't tip under a 500 N tube pull"
+  },
+  "STATION-062": {
+    "section": "check_modules",
+    "name": "printed parts fit a 250 mm printer bed"
+  },
+  "STATION-063": {
+    "section": "check_assembly_order",
+    "name": "assembly order is collision-free"
+  },
+  "STATION-064": {
+    "section": "check_printing",
+    "name": "printed parts need no support"
+  },
+  "STATION-065": {
+    "section": "check_printing",
+    "name": "printed walls >= 1.2 mm (3 perimeters)"
+  },
+  "STATION-066": {
+    "section": "check_variation",
+    "name": "link tube strain, Monte Carlo 99.73 %"
+  },
+  "STATION-067": {
+    "section": "check_variation",
+    "name": "link tube strain, RSS (3 sigma)"
+  },
+  "STATION-068": {
+    "section": "check_variation",
+    "name": "link tube axial strain over the water temperature range"
+  },
+  "STATION-069": {
+    "section": "check_variation",
+    "name": "printed clamps stay below PETG heat deflection"
+  },
+  "STATION-070": {
+    "section": "check_loads",
+    "name": "line-pressure end thrust well under the 500 N design pull"
+  },
+  "STATION-071": {
+    "section": "check_loads",
+    "name": "wall screws: load per M6 under a 500 N tube pull"
+  }
+}

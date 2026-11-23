@@ -5,11 +5,15 @@ the same section functions, so a failing check fails CI with its detail line.
 The negative tests break the design on purpose and confirm the checks catch it.
 """
 
+import json
+
 import pytest
-from build123d import Pos, Rot
+from build123d import Box, Pos, Rot
 
 import assembly as A
 from tools.checks import Report
+
+CHECK_INVENTORY = json.loads((A.ROOT / "tests" / "check_inventory.json").read_text())
 
 
 def run(section, parts) -> Report:
@@ -21,6 +25,9 @@ def run(section, parts) -> Report:
 def test_every_section_function_is_run():
     defined = {n for n in dir(A) if n.startswith("check_") and callable(getattr(A, n))}
     assert defined == {s.__name__ for s in A.SECTIONS}
+    assert defined == {entry["section"] for entry in CHECK_INVENTORY.values()}
+    checks = [(entry["section"], entry["name"]) for entry in CHECK_INVENTORY.values()]
+    assert len(checks) == len(set(checks)), "duplicate check in the accepted inventory"
 
 
 @pytest.mark.slow
@@ -28,6 +35,11 @@ def test_every_section_function_is_run():
 def test_section_passes(section, parts):
     r = run(section, parts)
     assert r.results, "section ran no checks"
+    expected = {
+        entry["name"] for entry in CHECK_INVENTORY.values() if entry["section"] == section.__name__
+    }
+    actual = [name for _, name, _, _ in r.results]
+    assert set(actual) == expected and len(actual) == len(expected), "check inventory changed"
     assert not r.failed(), "\n".join(f"{n}: {d}" for _, n, _, d in r.failed())
 
 
@@ -39,6 +51,16 @@ def failed_names(section, parts) -> set[str]:
 def test_interference_catches_a_cap_pushed_into_the_valve(parts):
     bad = {k: parts[k] for k in ("valve_body", "valve_clamp_cap")}
     bad["valve_clamp_cap"] = Pos(0, -1.0, 0) * bad["valve_clamp_cap"]
+    assert "no solid interference" in failed_names(A.check_interference, bad)
+
+
+def test_interference_catches_a_part_embedded_in_solid_material(parts):
+    # An embedded solid in a local test block must reach the station report.
+    body = parts["valve_body"]
+    point = next(v.center() for v in body.faces() if v.geom_type.name == "PLANE")
+    # Use a guaranteed solid test block in station coordinates, without relying
+    # on which body face the CAD kernel returns first.
+    bad = {"block": Pos(*point) * Box(10, 10, 10), "embedded": Pos(*point) * Box(2, 2, 2)}
     assert "no solid interference" in failed_names(A.check_interference, bad)
 
 
@@ -57,6 +79,29 @@ def test_alignment_catches_an_offset_link_tube(parts):
     assert "tube on that axis, dead straight" in failed_names(A.check_alignment, bad)
 
 
+@pytest.mark.parametrize("kind", ["block", "blocked bore", "wrong bore"])
+def test_alignment_rejects_fake_tubes_with_the_same_bounding_box(parts, kind):
+    from build123d import Cylinder
+
+    bb = parts["tube_link"].bounding_box()
+    if kind == "block":
+        fake = Pos(*bb.center()) * Box(*bb.size)
+    else:
+        fake = (
+            Pos(bb.min.X, bb.center().Y, bb.center().Z)
+            * Rot(0, 90, 0)
+            * Cylinder(A.LINK_TUBE_OD / 2, bb.size.X, align=A.ALIGN_MIN)
+        )
+        if kind == "wrong bore":
+            fake -= (
+                Pos(bb.min.X - 1, bb.center().Y, bb.center().Z)
+                * Rot(0, 90, 0)
+                * Cylinder(A.LINK_TUBE_ID / 4, bb.size.X + 2, align=A.ALIGN_MIN)
+            )
+    bad = dict(parts, tube_link=fake)
+    assert "tube on that axis, dead straight" in failed_names(A.check_alignment, bad)
+
+
 def test_variation_catches_loose_tolerances(parts, monkeypatch):
     for stack in ("ALIGN_STACK_Z", "ALIGN_STACK_Y"):  # every part 3x less accurate
         monkeypatch.setattr(A, stack, tuple((t * 3, s) for t, s in getattr(A, stack)))
@@ -71,14 +116,16 @@ def test_loads_catch_a_weak_wall_plug(parts, monkeypatch):
 
 @pytest.mark.slow
 def test_assembly_order_catches_link_tube_fitted_last(parts, monkeypatch):
-    # the original README order: both components clamped first, link tube pushed in after
-    order = [
-        (label, tuple(p for p in prefixes if p != "tube_link"))
-        for label, prefixes in A.ASSEMBLY_ORDER
-    ]
-    order.append(("link tube last", ("tube_link",)))
-    monkeypatch.setattr(A, "ASSEMBLY_ORDER", tuple(order))
-    assert "assembly order is collision-free" in failed_names(A.check_assembly_order, parts)
+    # Isolate the physically impossible final step from the old README order:
+    # both real fittings are already fixed, then the stop-to-stop tube goes in.
+    # The full correct build is independently checked by test_section_passes.
+    stage = {
+        "base_fixed_valve_fitting": parts[A.VALVE_INLET],
+        "base_fixed_meter_fitting": parts["qsf_body_out"],
+        **{n: parts[n] for n in ("tube_link", "tube_in", "tube_out")},
+    }
+    monkeypatch.setattr(A, "ASSEMBLY_ORDER", (("link tube last", ("tube_link",)),))
+    assert "assembly order is collision-free" in failed_names(A.check_assembly_order, stage)
 
 
 @pytest.mark.parametrize(
@@ -126,10 +173,59 @@ def test_confirmed_m12_fit_does_not_hide_insert_misalignment(parts):
 def test_old_strap_torque_fails_with_actual_elbow_lever(parts, monkeypatch):
     monkeypatch.setattr(A.FCL, "STRAP_TORQUE", 0.5)
     assert "meter can't rotate under a 50 N cable pull" in failed_names(
-        A.check_flowmeter_clamp, parts
+        A.check_flowmeter_holding, parts
     )
 
 
 def test_excessive_strap_torque_overloads_petg(parts, monkeypatch):
     monkeypatch.setattr(A.FCL, "STRAP_TORQUE", 0.6)
     assert "screw bearing on PETG / acrylic < allowable" in failed_names(A.check_modules, parts)
+
+
+def test_hex_angle_check_rejects_obstruction(parts):
+    bad = dict(parts)
+    bb = parts["qsf_body_in"].bounding_box()
+    bad["base_front"] = Pos(bb.center().X, A.FCL.FM_Y + A.FCL.BODY_D / 2 - 0.5, 0) * Box(2, 2, 2)
+    assert "fits any hex angle (fittings 0..60 deg)" in failed_names(A.check_flowmeter_clamp, bad)
+
+
+def test_printing_rejects_a_thin_wall(parts, monkeypatch):
+    monkeypatch.setattr(A, "printed_parts", lambda: {"thin coupon": (Box(10, 10, 0.5), (0, 0, 1))})
+    assert f"printed walls >= {A.MIN_WALL} mm (3 perimeters)" in failed_names(
+        A.check_printing, parts
+    )
+
+
+def test_printing_rejects_absent_wall_measurements(parts, monkeypatch):
+    monkeypatch.setattr(A, "printed_parts", lambda: {"coupon": (Box(10, 10, 5), (0, 0, 1))})
+
+    def missing(*args, **kwargs):
+        raise ValueError("no usable rays")
+
+    monkeypatch.setattr(A.CK, "wall_measurement", missing)
+    assert f"printed walls >= {A.MIN_WALL} mm (3 perimeters)" in failed_names(
+        A.check_printing, parts
+    )
+
+
+def test_printing_uses_the_configured_hole_limit(parts, monkeypatch):
+    from build123d import Cylinder
+
+    coupon = Pos(0, 0, 10) * Box(20, 10, 20) - Pos(0, 0, 10) * Rot(90, 0, 0) * Cylinder(4, 12)
+    monkeypatch.setattr(A, "printed_parts", lambda: {"coupon": (coupon, (0, 0, 1))})
+    monkeypatch.setattr(A, "HOLE_SELF_SUPPORT_R", 3)
+    assert "printed parts need no support" in failed_names(A.check_printing, parts)
+
+
+def test_assembly_motion_rejects_an_obstacle_between_old_snapshots():
+    # A custom bench component moves along -Y across a thin obstruction at
+    # +0.52 mm. At integer distances the two thin solids are always disjoint.
+    bad = {
+        "valve_body": Pos(-50, 80, 70) * Box(1, 0.1, 1),
+        "base_test_obstacle": Pos(-49.8, 80.52, 70) * Box(1, 0.1, 1),
+        "tube_in": Pos(-500, 80, 70) * Box(1, 1, 1),
+        "tube_out": Pos(500, 80, 70) * Box(1, 1, 1),
+    }
+    assert "assembly order is collision-free" in failed_names(A.check_assembly_order, bad)
+    del bad["base_test_obstacle"]
+    assert not failed_names(A.check_assembly_order, bad)

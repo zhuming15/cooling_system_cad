@@ -19,6 +19,34 @@ def test_overlap_measures_shared_volume():
     assert CK.overlap(a, Pos(20, 0, 0) * Box(10, 10, 10)) == 0.0
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+def test_overlap_includes_containment_and_equal_boxes(reverse):
+    a, b = Box(10, 10, 10), Box(2, 2, 2)
+    if reverse:
+        a, b = b, a
+    assert CK.overlap(a, b) == pytest.approx(8)
+    assert CK.overlap(a, a) == pytest.approx(a.volume)
+    assert CK.overlap(a, Pos(30, 0, 0) * b) == 0
+
+
+def test_interference_bounds_are_calculated_once_and_not_retained(monkeypatch):
+    from build123d import Shape
+
+    original = Shape.bounding_box
+    calls = []
+
+    def counted(self, *args, **kwargs):
+        calls.append(self)
+        return original(self, *args, **kwargs)
+
+    parts = {str(i): Pos(i * 20, 0, 0) * Box(2, 2, 2) for i in range(10)}
+    monkeypatch.setattr(Shape, "bounding_box", counted)
+    assert CK.interferences(parts) == []
+    assert len(calls) == len(parts)
+    parts["1"] = parts["0"].moved(Pos(0.1, 0, 0))
+    assert [(a, b) for _, a, b in CK.interferences(parts)] == [("0", "1")]
+
+
 def test_interferences_lists_only_clashing_pairs():
     parts = {
         "a": Box(10, 10, 10),
@@ -153,8 +181,106 @@ def test_sweep_box_pruning_keeps_contacts_for_each_direction(axis):
     far = Pos(100, 100, 100) * Box(2, 2, 2)
     parts = {"moving": moving, "stop": stop, "far": far}
     hits = CK.sweep(parts, ["moving"], ["stop", "far"], axis=axis, travel=6, step=1)
-    expected_first = next(
-        d for d in range(6, 0, -1) if CK.overlap(Pos(*(-d * v for v in axis)) * moving, stop) > 1e-3
-    )
-    assert hits == {("moving", "stop"): expected_first}
+    assert set(hits) == {("moving", "stop")}
+    d = hits[("moving", "stop")]
+    assert CK.overlap(Pos(*(-d * v for v in axis)) * moving, stop) > CK.VOLUME_TOL
     assert CK.sweep(parts, ["moving"], ["far"], axis=axis, travel=6) == {}
+
+
+@pytest.mark.parametrize("travel,step", [(1, 1), (0.95, 0.7), (1, 2)])
+def test_sweep_detects_thin_obstacle_between_old_samples(travel, step):
+    parts = {"peg": Box(0.1, 1, 1), "stop": Pos(0.52, 0.2, 0) * Box(0.1, 1, 1)}
+    assert CK.sweep(parts, ["peg"], ["stop"], (-1, 0, 0), travel, step)
+    parts["stop"] = Pos(0, 5, 0) * parts["stop"]
+    assert not CK.sweep(parts, ["peg"], ["stop"], (-1, 0, 0), travel, step)
+
+
+def test_sweep_checks_home_position_and_zero_travel():
+    parts = {"a": Box(1, 1, 1), "b": Box(1, 1, 1)}
+    assert CK.sweep(parts, ["a"], ["b"], travel=0)
+    parts["b"] = Pos(5, 0, 0) * parts["b"]
+    assert not CK.sweep(parts, ["a"], ["b"], travel=0)
+
+
+def test_sweep_does_not_pass_an_unresolved_motion():
+    from build123d import Sphere
+
+    parts = {"a": Sphere(1), "b": Pos(0, 0.5, 0) * Sphere(1)}
+    result = CK.sweep(parts, ["a"], ["b"], travel=1, max_evaluations=0)
+    assert result
+    assert result.unresolved == {("a", "b")}
+    assert "uncertified" in repr(result)
+    parts["b"] = Pos(20, 0, 0) * parts["b"]
+    assert not CK.sweep(parts, ["a"], ["b"], travel=1, max_evaluations=0)
+
+
+@pytest.mark.parametrize("kwargs", [{"step": 0}, {"travel": -1}, {"axis": (2, 0, 0)}])
+def test_sweep_rejects_invalid_motion(kwargs):
+    with pytest.raises(ValueError):
+        CK.sweep({}, [], [], **kwargs)
+
+
+def test_straight_tube_requires_the_actual_cylinders_and_bore():
+    tube = Cylinder(6, 20) - Cylinder(4, 22)
+    assert CK.is_straight_tube(tube, (0, 0, -10), (0, 0, 10), 12, 8)
+    assert not CK.is_straight_tube(Box(12, 12, 20), (0, 0, -10), (0, 0, 10), 12, 8)
+    assert not CK.is_straight_tube(Cylinder(6, 20), (0, 0, -10), (0, 0, 10), 12, 8)
+    assert not CK.is_straight_tube(tube, (0.5, 0, -10), (0.5, 0, 10), 12, 8)
+    assert not CK.is_straight_tube(tube, (0, 0, -10), (0, 0, 10), 12, 7)
+
+
+def test_rotation_envelope_covers_angles_between_samples():
+    from build123d import RegularPolygon, extrude
+
+    hexagon = extrude(RegularPolygon(10, 6), 5)
+    envelope = CK.rotation_envelope(hexagon, (0, 0, 0), (0, 0, 1))
+    obstacle = Pos(9.95, 0, 2.5) * Box(0.1, 0.1, 1)
+    assert CK.overlap(envelope, obstacle) > CK.VOLUME_TOL
+    assert CK.overlap(envelope, Pos(10, 0, 0) * obstacle) == 0
+    for angle in (0, 3.75, 17, 59.99, 145):
+        rotated = Rot(0, 0, angle) * hexagon
+        outside = rotated - envelope
+        assert not outside or outside.volume < 1e-6
+
+
+def test_rotation_envelope_covers_curved_offset_and_tilted_parts():
+    from build123d import Cone, Torus
+
+    shapes = [
+        Cylinder(3, 6),
+        Cone(5, 2, 6),
+        Torus(5, 1),
+        Pos(2, 0, 0) * Cylinder(2, 5),
+        Rot(0, 0.00005, 0) * Cylinder(3, 1000),
+    ]
+    for shape in shapes:
+        envelope = CK.rotation_envelope(shape, (0, 0, 0), (0, 0, 1))
+        outside = Rot(0, 0, 13.7) * shape - envelope
+        assert not outside or outside.volume < 1e-6
+
+
+def test_sweep_certifies_axial_running_clearance_and_sliding_flat():
+    peg = Rot(90, 0, 0) * Cylinder(2, 10)
+    sleeve = Box(10, 20, 10) - Rot(90, 0, 0) * Cylinder(2.05, 22)
+    assert CK.sweep({"peg": peg, "sleeve": sleeve}, ["peg"], ["sleeve"], travel=10) == {}
+    assert CK.sweep({"peg": peg, "wall": Box(10, 20, 10)}, ["peg"], ["wall"], travel=10)
+    # A flat slides along a ledge. The larger body extends below the flat,
+    # outside the ledge's X range; whole-part boxes alone cannot certify it.
+    moving = Box(2, 2, 2) + Pos(4, 0, -2) * Box(2, 2, 6)
+    ledge = Pos(0, 0, -2) * Box(2, 10, 2)
+    assert CK._slab_motion_clear(moving, ledge, (0, -1, 0), 5)
+    assert not CK._slab_motion_clear(moving, Pos(0, 0, 0.1) * ledge, (0, -1, 0), 5)
+
+
+def test_wall_measurement_reports_coverage_and_rejects_missing_samples():
+    from build123d import Solid
+
+    measured = CK.wall_measurement(Box(10, 10, 2))
+    assert measured.minimum == pytest.approx(2, abs=0.01)
+    assert measured.measured_faces == measured.faces == 6
+    assert measured.rays >= measured.hits > 0
+    assert CK.wall_measurement(Box(10, 10, 0.5)).minimum < 1.2
+    with pytest.raises(ValueError, match="solid"):
+        CK.wall_measurement(Solid())
+    with pytest.raises(ValueError, match="positive"):
+        CK.wall_measurement(Box(1, 1, 1), per_face=0)

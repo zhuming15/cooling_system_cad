@@ -294,7 +294,7 @@ surface points and 4,843 functional feature-edge samples). No fit-critical
 dimensions require estimated or scaled values. The standalone-stage 52-test suite passed;
 the 16 component/vendor-tool tests passed again after the final gland-edge
 correction. Those results describe the standalone component, before mating.
-The assembled station now passes all **71 design checks** and **63 pytest tests**,
+The assembled station is verified by **71 design checks** and **93 pytest tests**,
 including negative tests for plug displacement, wrong key phase, insertion
 obstructions, insufficient strap torque and excessive PETG bearing pressure.
 
@@ -410,11 +410,51 @@ fail. The checks cover:
 - the flowmeter clamp at every fitting hex angle;
 - screw preload, tipping under a 500 N tube pull, wall-screw loads;
 - that every assembly step can move into place in order without a collision;
-- printability: no support needed, minimum wall thickness, bed size.
+- printability: no support needed, sampled wall thickness, bed size.
 
 `uv run pytest` runs the same checks as tests. It also breaks the design on
 purpose (meter mounted backwards, link tube fitted last, looser tolerances)
 and checks that the matching check fails.
+
+The accepted check inventory is `tests/check_inventory.json`: each check has a
+stable `STATION-nnn` identifier, its section and its report name. Pytest rejects
+missing, duplicate or unexpected checks. Change the inventory explicitly when
+an engineering requirement changes; do not regenerate it merely to pass a test.
+Negative tests target individual failure modes, including contained collisions,
+false tubes with the correct bounding box, and obstacles between the former
+motion snapshots. This is targeted fault coverage, not a claim that all 71
+requirements have a separate negative case.
+
+Collision pruning uses inclusive box intersection, including containment.
+All-pairs bounds are calculated once per invocation; no global geometry cache
+survives a changed model. The measured interference section fell from 14.31 s
+to about 1.9 s with the corrected containment rule and cached bounds.
+
+Insertion checks cover motion intervals rather than only positions 1 mm apart.
+They use exact swept occupancy for axial hardware, conservative sliced bounds
+for sliding contacts, and adaptive distance/volume bounds elsewhere. The
+0.001 mm³ interference limit is unchanged. A calculation budget limits adaptive
+work per pair; an unresolved interval fails and is labelled uncertified.
+The reported distance is a collision witness or unresolved interval, not an
+exact first-contact measurement. Fitting rotation uses conservative full-turn
+envelopes and invariant round seating faces, including angles between the
+former 7.5° snapshots.
+
+The tube check reads its cylindrical walls, bore and planar ends directly from
+the B-rep. Wall thickness remains a sampled estimate: the report gives usable
+rays and measured faces, and incomplete face coverage fails. It does not prove
+a global minimum between samples; print coupons and physical inspection remain
+required. Vendor comparisons also fail if a required fit zone has no surface
+measurements on either model, or if zone definitions are invalid.
+Exact B-rep face-interior samples fill fit zones missed by tessellation vertices;
+vendor preview meshes still use only their original measured vertices.
+
+For quick work on the reusable tools, use
+`uv run pytest tests/test_checks.py tests/test_vendor_tools.py`. The broader
+`uv run pytest -m "not slow"` also builds the station for selected negative
+tests. Holding-load calculations are separate from geometric fitting checks,
+and the tube-last negative test isolates that impossible installation step.
+The complete suite and release workflow below remain required.
 
 ## Maintaining the design
 

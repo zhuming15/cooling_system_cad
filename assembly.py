@@ -51,9 +51,11 @@ import flowmeter_electronic_interconnect as FEI
 import valve as V
 import valve_connector as F
 from tools import checks as CK
-from tools.checks import Report, min_wall, overhangs, overlap, ray_clear, sweep
+from tools.checks import Report, overhangs, overlap, ray_clear, sweep
 
 TUBE_LEN = 40.0  # outlet tube stub after the valve (model only)
+LINK_TUBE_OD = F.TUBE_OD - 0.05  # same cosmetic radial clearance as F.make_tube()
+LINK_TUBE_ID = 8.0  # specified 12 x 8 tube; same bore as F.make_tube()
 FLOW_DIR = -1  # system flow along -X = left -> right as the operator
 # sees it (operator faces the wall, so +X is their left)
 STRAIGHT_DN = 15  # ifm SV3051 manual 11592037 Fig. 2: >= 15 x DN in and out
@@ -200,11 +202,14 @@ def interconnect_location() -> Location:
 
 def make_link_tube() -> Solid:
     """12 x 8 tube on the common axis (Y = C.VALVE_Y, Z = 0), LINK_X0 .. LINK_X1."""
-    od = F.TUBE_OD - 0.05
     length = LINK_X1 - LINK_X0
-    t = Pos(LINK_X0, C.VALVE_Y, 0) * Rot(0, 90, 0) * Cylinder(od / 2, length, align=ALIGN_MIN)
+    t = (
+        Pos(LINK_X0, C.VALVE_Y, 0)
+        * Rot(0, 90, 0)
+        * Cylinder(LINK_TUBE_OD / 2, length, align=ALIGN_MIN)
+    )
     return t - Pos(LINK_X0 - 1, C.VALVE_Y, 0) * Rot(0, 90, 0) * Cylinder(
-        4.0, length + 2, align=ALIGN_MIN
+        LINK_TUBE_ID / 2, length + 2, align=ALIGN_MIN
     )
 
 
@@ -590,7 +595,11 @@ def check_assembly_order(parts: dict[str, Solid], r: Report) -> None:
     for label, prefixes in ASSEMBLY_ORDER:
         moving = [n for n in parts if n.startswith(prefixes)]
         hits = sweep(parts, moving, installed)
-        clashes += [f"{label}: {m}/{n} at {d:.0f} mm" for (m, n), d in hits.items()]
+        clashes += [
+            f"{label}: {m}/{n} at {d:.4g} mm"
+            + (" (motion not certified)" if (m, n) in hits.unresolved else "")
+            for (m, n), d in hits.items()
+        ]
         installed += moving
     ends = []
     for name in ("tube_in", "tube_out"):
@@ -600,28 +609,30 @@ def check_assembly_order(parts: dict[str, Solid], r: Report) -> None:
     r.check(
         "assembly order is collision-free",
         not clashes and not ends and not left,
-        f"{len(ASSEMBLY_ORDER)} steps, each swept 60 mm along -Y into place; end tubes pushed "
+        f"{len(ASSEMBLY_ORDER)} steps, continuous bounds over 60 mm along -Y; end tubes pushed "
         "in along X"
         if not (clashes or ends or left)
         else "; ".join(clashes + ends + [f"not in any step: {left}"])[:300],
     )
-    # the link tube can't go in last: it is cut stop-to-stop between two fixed fittings
-    late = sweep(parts, ["tube_link"], [n for n in installed if n != "tube_link"])
-    print(
-        "  [INFO] link tube pushed in after both components: "
-        + ("blocked" if late else "possible")
-        + " -> fit it on the bench (bench unit), as in the assembly order"
+    r.info(
+        "Fit the stop-to-stop link tube on the bench; the negative assembly-order test "
+        "verifies that installing it last is blocked."
     )
 
 
 def check_printing(parts: dict[str, Solid], r: Report) -> None:
+    r.start("11b. Printability and sampled wall thickness")
     # --- printability ------------------------------------------------------------
     worst_span, curved, walls = 0.0, [], {}
     for name, (solid, build) in printed_parts().items():
-        spans, bad = overhangs(solid, build)
+        spans, bad = overhangs(solid, build, hole_self_support_r=HOLE_SELF_SUPPORT_R)
         worst_span = max([worst_span] + spans)
         curved += [f"{name}: {b}" for b in bad]
-        walls[name] = min_wall(solid)
+        try:
+            walls[name] = CK.wall_measurement(solid)
+        except ValueError as exc:
+            r.check(f"printed walls >= {MIN_WALL} mm (3 perimeters)", False, f"{name}: {exc}")
+            return
     r.check(
         "printed parts need no support",
         worst_span <= BRIDGE_MAX and not curved,
@@ -630,11 +641,16 @@ def check_printing(parts: dict[str, Solid], r: Report) -> None:
         if not curved
         else "; ".join(curved)[:300],
     )
-    thin = min(walls, key=walls.get)
+    thin = min(walls, key=lambda n: walls[n].minimum)
     r.check(
         f"printed walls >= {MIN_WALL} mm (3 perimeters)",
-        walls[thin] >= MIN_WALL,
-        ", ".join(f"{k} {v:.2f}" for k, v in walls.items()),
+        walls[thin].minimum >= MIN_WALL,
+        "sampled estimate; "
+        + ", ".join(
+            f"{k} {v.minimum:.2f} mm ({v.hits}/{v.rays} rays, {v.measured_faces}/{v.faces} faces)"
+            for k, v in walls.items()
+        )
+        + "; confirm with print coupons",
     )
 
 
@@ -712,26 +728,46 @@ def check_loads(parts: dict[str, Solid], r: Report) -> None:
 
 
 def phase_sweep(parts: dict[str, Solid], step: float = 7.5) -> tuple[list[str], float]:
-    """Spin every screwed-on fitting about its own axis through one hex pitch.
+    """Certify every fitting angle using conservative full-revolution envelopes.
 
-    Thread tightening decides where a fitting's hex flats end up, so the
-    clamp must fit at any angle. Returns the clashes found and the worst
-    seating gap of the flowmeter fittings.
+    Seating is established by a complete coaxial cylindrical face touching the
+    base, which is invariant under rotation. `step` remains accepted for callers
+    of the former sampled implementation; it does not determine verification.
     """
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+
+    if step <= 0:
+        raise ValueError("phase step must be positive")
     groups = {  # fitting parts -> (axis Y, the clamp parts it must not hit)
         "qsf": (FCL.FM_Y, ["base_front"] + [n for n in parts if n.startswith("fm_clamp")]),
         "fitting": (C.VALVE_Y, ["base_front", "valve_clamp_base", "valve_clamp_cap"]),
     }
     hits, worst = [], 0.0
-    a = 0.0
-    while a < 60.0:
-        for prefix, (y, clamp_names) in groups.items():
-            for n in [n for n in parts if n.startswith(prefix)]:
-                spun = Pos(0, y, 0) * Rot(a, 0, 0) * Pos(0, -y, 0) * parts[n]
-                hits += [f"{n}@{a:g}deg/{c}" for c in clamp_names if overlap(spun, parts[c]) > 1e-3]
-                if n.startswith("qsf_body"):
-                    worst = max(worst, spun.distance_to(parts["fm_clamp_base"]))
-        a += step
+    for prefix, (y, clamp_names) in groups.items():
+        for n in [n for n in parts if n.startswith(prefix)]:
+            envelope = CK.rotation_envelope(parts[n], (0, y, 0), (1, 0, 0))
+            hits += [
+                f"{n}@any angle/{c}"
+                for c in clamp_names
+                if overlap(envelope, parts[c]) > CK.VOLUME_TOL
+            ]
+            if n.startswith("qsf_body"):
+                seats = []
+                for face in parts[n].faces():
+                    if face.geom_type.name != "CYLINDER":
+                        continue
+                    surface = BRepAdaptor_Surface(face.wrapped)
+                    cylinder = surface.Cylinder()
+                    location = cylinder.Axis().Location()
+                    if (
+                        abs(cylinder.Radius() - FCL.BODY_D / 2) < 1e-6
+                        and abs(cylinder.Axis().Direction().X()) > 1 - 1e-12
+                        and hypot(location.Y() - y, location.Z()) < 1e-6
+                        and surface.LastUParameter() - surface.FirstUParameter()
+                        >= 2 * 3.141592653589793 - 1e-6
+                    ):
+                        seats.append(face.distance_to(parts["fm_clamp_base"]))
+                worst = max(worst, min(seats, default=float("inf")))
     return hits, worst
 
 
@@ -777,10 +813,11 @@ def check_alignment(parts: dict[str, Solid], r: Report) -> None:
     )
     r.check(
         "tube on that axis, dead straight",
-        abs(t.center().Y - b.Y) < 1e-3
-        and abs(t.center().Z) < 1e-3
-        and abs(t.size.Y - t.size.Z) < 1e-3,
-        f"tube centre Y {t.center().Y:.3f} / Z {t.center().Z:.3f}, straight cylinder",
+        CK.is_straight_tube(
+            parts["tube_link"], (t.min.X, b.Y, 0), (t.max.X, b.Y, 0), LINK_TUBE_OD, LINK_TUBE_ID
+        ),
+        f"tube centre Y {t.center().Y:.3f} / Z {t.center().Z:.3f}; "
+        "one annular solid, full coaxial cylindrical walls and planar ends",
     )
 
     r.check(
@@ -908,7 +945,11 @@ def check_flowmeter_clamp(parts: dict[str, Solid], r: Report) -> None:
         gap >= 1.0,
         f"min gap elsewhere {gap:.1f} mm; screw load goes through the brass fittings",
     )
-    # --- Holding (round grip, so friction + pad) ----------------------------------
+
+
+def check_flowmeter_holding(parts: dict[str, Solid], r: Report) -> None:
+    """Holding calculations, independent of fitting rotations and tool sweeps."""
+    r.start("8b. Flowmeter clamp holding loads")
     # Preload per strap: 2 x M4 into heat-set inserts at low torque. Normal force on
     # the round body is F on the strap half plus F on the base half.
     f_strap = 2 * C.preload(FCL.STRAP_TORQUE)
@@ -1078,6 +1119,7 @@ SECTIONS = (
     check_flow_direction,
     check_alignment,
     check_flowmeter_clamp,
+    check_flowmeter_holding,
     check_flowmeter_access,
     check_electrical_interconnect,
     check_modules,

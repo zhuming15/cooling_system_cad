@@ -453,6 +453,29 @@ def presets() -> dict[str, dict]:
 # --------------------------------------------------------------------------
 # Compare
 # --------------------------------------------------------------------------
+def _cover_fit_zones(points, shape, zones, to_part):
+    """Add exact face-interior points to fit zones missed by mesh vertices.
+
+    Tessellation vertices on a flat can all lie on its excluded end edges.
+    Evaluate the B-rep surface directly (never curved triangle centroids),
+    and retain points on the trimmed face in an otherwise unmeasured fit zone.
+    Vendor preview meshes have no B-rep and must retain their measured vertices.
+    """
+    measured = set(zone_of(apply(to_part, points), zones))
+    missing = {i for i, zone in enumerate(zones) if zone["kind"] == "fit"} - measured
+    if shape is None or not missing:
+        return points
+    extra = []
+    for face in shape.faces():
+        for u in (0.25, 0.5, 0.75):
+            for v in (0.25, 0.5, 0.75):
+                p = face.position_at(u, v)
+                q = np.array([tuple(p)])
+                if zone_of(apply(to_part, q), zones)[0] in missing and face.is_inside(p):
+                    extra.append(tuple(p))
+    return np.vstack((points, extra)) if extra else points
+
+
 def compare(spec: dict, vendor_path: Path, quiet: bool = False) -> dict:
     """Run the comparison; returns {zone name: (kind, n, max, mean, limit, ok)} and 'pass'."""
     import importlib
@@ -467,6 +490,10 @@ def compare(spec: dict, vendor_path: Path, quiet: bool = False) -> dict:
     fit_tol = spec.get("fit_tol", FIT_TOL)
     env_tol = spec.get("envelope_tol", ENVELOPE_TOL)
     zones = spec.get("zones", [])
+    if len({z["name"] for z in zones}) != len(zones) or any(
+        z["kind"] not in {"fit", "envelope", "skip"} for z in zones
+    ):
+        raise ValueError("comparison zones need unique names and a valid kind")
 
     vendor_tris, vendor_solid = load_vendor(vendor_path)
     ours_v = to_v * ours  # our model in the vendor frame
@@ -478,6 +505,7 @@ def compare(spec: dict, vendor_path: Path, quiet: bool = False) -> dict:
     vv = np.unique(vendor_tris.reshape(-1, 3).round(6), axis=0)
     if len(vv) > MAX_POINTS:  # fixed seed: the same subset every run
         vv = vv[np.random.default_rng(0).choice(len(vv), MAX_POINTS, replace=False)]
+    vv = _cover_fit_zones(vv, vendor_solid, zones, m_inv)
     if not quiet:
         print(f"Comparing {len(vv)} vendor surface points...", flush=True)
     dev_v = distances_to_shapes(vv, ours_skin.faces())
@@ -506,6 +534,7 @@ def compare(spec: dict, vendor_path: Path, quiet: bool = False) -> dict:
     # ours -> vendor
     our_tris = tessellate(ours_v, 0.01)
     ov = np.unique(our_tris.reshape(-1, 3).round(6), axis=0)
+    ov = _cover_fit_zones(ov, ours_v, zones, m_inv)
     if vendor_solid is not None:
         # Preserve the exact sampled points but compute distances in the part
         # frame: aligned boxes prune far more faces than an oblique STEP frame.
@@ -537,6 +566,21 @@ def compare(spec: dict, vendor_path: Path, quiet: bool = False) -> dict:
     for k, (name, kind) in enumerate(zip(names, kinds)):
         key = k if k < len(zones) else -1
         limit = fit_tol if kind == "fit" else env_tol if kind == "envelope" else None
+        # A required fit zone with no measured surface points is unverified,
+        # not a successful comparison. Edges need not exist in a smooth zone.
+        if kind == "fit":
+            for direction, selection in (("vendor", zone_v == key), ("model", zone_o == key)):
+                if not selection.any():
+                    result[f"{name} [{direction} coverage]"] = (
+                        kind,
+                        0,
+                        float("inf"),
+                        float("inf"),
+                        limit,
+                        False,
+                        True,
+                    )
+                    ok_all = False
         for direction, dev, sel, judged in (
             ("vendor->ours", dev_v, (zone_v == key) & ~internal, True),
             (

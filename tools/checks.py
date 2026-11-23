@@ -8,8 +8,9 @@ including that each one detects a deliberately bad geometry.
 
 Groups
   Report                       PASS/FAIL/INFO lines, failure count
-  geometry                     overlap, interferences, axis_probe, ray_clear, sweep
-  manufacturing                overhangs, min_wall, is_flat_profile, max_extent
+  geometry                     overlap, interferences, axis_probe, ray_clear, sweep,
+                               is_straight_tube, rotation_envelope
+  manufacturing                overhangs, wall_measurement, min_wall, is_flat_profile, max_extent
   tolerance                    worst_case, rss, monte_carlo
   mechanics                    preload, annulus_area, hex_bearing_area,
                                fixed_fixed_strain, thermal_growth, end_thrust,
@@ -23,9 +24,30 @@ from __future__ import annotations
 import itertools
 import math
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 
 import numpy as np
-from build123d import Align, Cylinder, Location, Plane, Pos, Solid, Vector
+from build123d import Align, Box, Compound, Cylinder, Location, Plane, Pos, Solid, Vector
+
+VOLUME_TOL = 1e-3  # mm³: existing interference acceptance threshold
+GEOMETRY_EPS = 1e-7  # mm: conservative padding for OCCT bounding boxes
+
+
+def _bounds(shape):
+    box = shape.bounding_box()
+    return tuple(box.min), tuple(box.max)
+
+
+def _boxes_meet(a, b):
+    """Inclusive intersection: build123d BoundBox.overlaps excludes containment."""
+    return all(
+        a[1][i] >= b[0][i] - GEOMETRY_EPS and b[1][i] >= a[0][i] - GEOMETRY_EPS for i in range(3)
+    )
+
+
+def _common_volume(a, b):
+    common = a & b
+    return sum(s.volume for s in common.solids()) if common else 0.0
 
 
 # --------------------------------------------------------------------------
@@ -65,17 +87,20 @@ class Report:
 # --------------------------------------------------------------------------
 def overlap(a: Solid, b: Solid) -> float:
     """Volume (mm3) shared by two solids; 0 when their boxes don't meet."""
-    if not a.bounding_box().overlaps(b.bounding_box()):
+    if not _boxes_meet(_bounds(a), _bounds(b)):
         return 0.0
-    common = a & b
-    return sum(s.volume for s in common.solids()) if common else 0.0
+    return _common_volume(a, b)
 
 
 def interferences(parts: dict[str, Solid], tol: float = 1e-3) -> list[tuple[float, str, str]]:
     """Every pair of parts sharing more than `tol` mm3: [(volume, name_a, name_b)]."""
+    # Invocation-local snapshot; no global cache can survive a geometry edit.
+    bounds = {n: _bounds(s) for n, s in parts.items()}
     out = []
     for (na, a), (nb, b) in itertools.combinations(parts.items(), 2):
-        v = overlap(a, b)
+        if not _boxes_meet(bounds[na], bounds[nb]):
+            continue
+        v = _common_volume(a, b)
         if v > tol:
             out.append((v, na, nb))
     return out
@@ -89,10 +114,257 @@ def axis_probe(
     return Location(plane) * Cylinder(d / 2, length, align=(Align.CENTER, Align.CENTER, Align.MIN))
 
 
+def is_straight_tube(
+    solid: Solid,
+    start: Sequence[float],
+    end: Sequence[float],
+    od: float,
+    id_: float,
+    tolerance: float = 1e-3,
+) -> bool:
+    """Verify an intact annular extrusion from its B-rep, not its bounding box.
+
+    Require one valid solid, two full coaxial cylinders of the specified radii
+    and length, and two planar annular ends at the independently supplied datums.
+    Extra cuts, blocked bores, bends and disconnected pieces therefore fail.
+    """
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+
+    p, q = np.array(start, float), np.array(end, float)
+    length = float(np.linalg.norm(q - p))
+    if length <= tolerance or not 0 < id_ < od or not solid.is_valid:
+        return False
+    axis = (q - p) / length
+    faces = solid.faces()
+    if len(solid.solids()) != 1 or len(faces) != 4:
+        return False
+    radii, ends = [], []
+    for face in faces:
+        surface = BRepAdaptor_Surface(face.wrapped)
+        if face.geom_type.name == "CYLINDER":
+            cylinder = surface.Cylinder()
+            direction = np.array(cylinder.Axis().Direction().Coord())
+            origin = np.array(cylinder.Axis().Location().Coord())
+            radius = cylinder.Radius()
+            if (
+                np.linalg.norm(np.cross(direction, axis)) > tolerance / length
+                or np.linalg.norm(np.cross(origin - p, axis)) > tolerance
+                or abs(face.area - 2 * math.pi * radius * length) > 2 * math.pi * radius * tolerance
+            ):
+                return False
+            radii.append(radius)
+        elif face.geom_type.name == "PLANE":
+            normal = np.array(surface.Plane().Axis().Direction().Coord())
+            if np.linalg.norm(np.cross(normal, axis)) > tolerance / length:
+                return False
+            ends.append(float(np.dot(np.array(surface.Plane().Location().Coord()) - p, axis)))
+        else:
+            return False
+    return (
+        len(radii) == len(ends) == 2
+        and np.allclose(sorted(radii), (id_ / 2, od / 2), atol=tolerance, rtol=0)
+        and np.allclose(sorted(ends), (0, length), atol=tolerance, rtol=0)
+        and abs(solid.volume - math.pi / 4 * (od**2 - id_**2) * length)
+        <= math.pi * od * length * tolerance
+    )
+
+
+def rotation_envelope(solid: Solid, origin: Sequence[float], axis: Sequence[float]) -> Compound:
+    """Conservative solid envelope for every angle of rotation about an axis.
+
+    Fill the radial extent of each face over its axial bounding interval.
+    Coaxial cylindrical/conical/toroidal faces retain their analytic radius;
+    other faces use the conservative radial corner of their bounding box.
+    The union covers all cross-sections of a closed solid, including angles
+    between samples. Individual cylinders are kept as a compound: overlapping
+    envelope volumes may over-report a clash, never conceal one.
+    """
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+
+    frame = Location(Plane(origin=tuple(origin), z_dir=tuple(axis)))
+    local = frame.inverse() * solid
+    pieces = []
+    for face in local.faces():
+        bb = face.bounding_box()
+        if bb.size.Z <= 1e-9:
+            continue
+        radius = math.hypot(max(abs(bb.min.X), abs(bb.max.X)), max(abs(bb.min.Y), abs(bb.max.Y)))
+        surface = BRepAdaptor_Surface(face.wrapped)
+        kind = face.geom_type.name
+        if kind == "PLANE":
+            plane = surface.Plane()
+            normal = plane.Axis().Direction()
+            # An axial hex flat projects to a line, not the entire radial
+            # bounding rectangle. Intersect that line with the rectangle to
+            # retain its exact corner radius while remaining conservative.
+            if abs(normal.Z()) < 1e-12:
+                nx, ny = normal.X(), normal.Y()
+                centre = plane.Location()
+                value = nx * centre.X() + ny * centre.Y()
+                corners = []
+                if abs(ny) > 1e-12:
+                    corners += [(x, (value - nx * x) / ny) for x in (bb.min.X, bb.max.X)]
+                if abs(nx) > 1e-12:
+                    corners += [((value - ny * y) / nx, y) for y in (bb.min.Y, bb.max.Y)]
+                corners = [
+                    (x, y)
+                    for x, y in corners
+                    if bb.min.X - GEOMETRY_EPS <= x <= bb.max.X + GEOMETRY_EPS
+                    and bb.min.Y - GEOMETRY_EPS <= y <= bb.max.Y + GEOMETRY_EPS
+                ]
+                if corners:
+                    radius = max(math.hypot(x, y) for x, y in corners)
+        analytic = {"CYLINDER": "Cylinder", "CONE": "Cone", "TORUS": "Torus"}
+        if kind in analytic:
+            geom = getattr(surface, analytic[kind])()
+            direction = geom.Axis().Direction()
+            centre = geom.Location()
+            if math.hypot(direction.X(), direction.Y()) < 1e-12:
+                eccentricity = math.hypot(centre.X(), centre.Y())
+                eccentricity += max(abs(z - centre.Z()) for z in (bb.min.Z, bb.max.Z)) * (
+                    math.hypot(direction.X(), direction.Y()) / abs(direction.Z())
+                )
+                if kind == "CYLINDER":
+                    radius = geom.Radius() + eccentricity
+                elif kind == "CONE":
+                    radius = (
+                        max(
+                            abs(
+                                geom.RefRadius()
+                                + (z - centre.Z()) / direction.Z() * math.tan(geom.SemiAngle())
+                            )
+                            for z in (bb.min.Z, bb.max.Z)
+                        )
+                        + eccentricity
+                    )
+                else:
+                    radius = geom.MajorRadius() + geom.MinorRadius() + eccentricity
+        pieces.append(
+            Pos(0, 0, bb.min.Z)
+            * Cylinder(radius, bb.size.Z, align=(Align.CENTER, Align.CENTER, Align.MIN))
+        )
+    if not pieces:
+        raise ValueError("rotation envelope needs a nonempty solid")
+    return frame * Compound(pieces)
+
+
 def ray_clear(parts: dict[str, Solid], probe: Solid, ignore: Iterable[str] = ()) -> list[str]:
     """Names of the parts (other than `ignore`) that the probe solid hits."""
     ignore = set(ignore)
-    return [n for n, p in parts.items() if n not in ignore and overlap(p, probe) > 1e-3]
+    pb = _bounds(probe)
+    return [
+        n
+        for n, p in parts.items()
+        if n not in ignore and _boxes_meet(_bounds(p), pb) and _common_volume(p, probe) > VOLUME_TOL
+    ]
+
+
+def _linear_envelope(solid, direction, travel):
+    """Exact swept occupancy for planar solids with axial cylindrical walls.
+
+    Such a solid can enter new material only through a non-tangential planar
+    face. Extrude those faces and include the two endpoint solids. Other
+    surface types return None so the adaptive general checker remains in use.
+    """
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+
+    faces = solid.faces()
+    for face in faces:
+        if face.geom_type.name == "PLANE":
+            continue
+        if face.geom_type.name != "CYLINDER":
+            return None
+        axis = BRepAdaptor_Surface(face.wrapped).Cylinder().Axis().Direction().Coord()
+        if math.hypot(*np.cross(axis, direction)) > 1e-10:
+            return None
+    delta = Vector(*(v * travel for v in direction))
+    pieces = [solid, Pos(*delta) * solid]
+    for face in faces:
+        if face.geom_type.name == "PLANE" and abs(face.normal_at().dot(Vector(*direction))) > 1e-10:
+            pieces.append(Solid.extrude(face, delta))
+    return Compound(pieces)
+
+
+def _slab_motion_clear(a, b, axis, travel):
+    """Certify sliding tangencies using conservative bounds of exact CAD slices.
+
+    Slice both solids at their feature vertices perpendicular to a coordinate
+    with no motion. Slices cannot exchange material along that coordinate.
+    The sum of swept-box intersection volumes bounds collision volume at every
+    time, even for a flat sliding on a ledge inside a much larger bounding box.
+    Failure to prove clearance simply falls back to adaptive distance checks.
+    """
+    ab, bb = _bounds(a), _bounds(b)
+    for coordinate, velocity in enumerate(axis):
+        if abs(velocity) > 1e-12:
+            continue
+        low = max(ab[0][coordinate], bb[0][coordinate])
+        high = min(ab[1][coordinate], bb[1][coordinate])
+        if high <= low:
+            return True
+        cuts = sorted(
+            {low, high}
+            | {
+                tuple(v.center())[coordinate]
+                for s in (a, b)
+                for v in s.vertices()
+                if low < tuple(v.center())[coordinate] < high
+            }
+        )
+        # Coalesce near-coincident feature planes into larger conservative
+        # slabs; OCCT cannot construct boxes thinner than its modelling tolerance.
+        merged = [low]
+        for cut in cuts[1:-1]:
+            if cut - merged[-1] > 1e-5 and high - cut > 1e-5:
+                merged.append(cut)
+        cuts = merged + [high]
+        if len(cuts) > 64:
+            continue
+        bound = 0.0
+        for lo, hi in itertools.pairwise(cuts):
+            if hi - lo < 1e-6:
+                # Do not omit a thin region from the volume bound.
+                bound = math.inf
+                break
+            pieces = []
+            for solid, bounds in ((a, ab), (b, bb)):
+                mins = [v - 1 for v in bounds[0]]
+                maxs = [v + 1 for v in bounds[1]]
+                mins[coordinate], maxs[coordinate] = lo, hi
+                clip = Pos(*((x + y) / 2 for x, y in zip(mins, maxs))) * Box(
+                    *(y - x for x, y in zip(mins, maxs))
+                )
+                piece = solid & clip
+                pieces.append(_bounds(piece) if piece and piece.solids() else None)
+            if any(p is None for p in pieces):
+                continue
+            (al, ah), (bl, bh) = pieces
+            bound += math.prod(
+                max(
+                    0.0,
+                    min(ah[i] + max(0, -axis[i] * travel), bh[i])
+                    - max(al[i] + min(0, -axis[i] * travel), bl[i]),
+                )
+                for i in range(3)
+            )
+            if bound > VOLUME_TOL:
+                break
+        if bound <= VOLUME_TOL:
+            return True
+    return False
+
+
+class SweepHits(dict):
+    """Collision witnesses; unresolved intervals are explicit, failing evidence."""
+
+    def __init__(self):
+        super().__init__()
+        self.unresolved = set()
+
+    def __repr__(self):
+        return super().__repr__() + (
+            f"; uncertified: {sorted(self.unresolved)}" if self.unresolved else ""
+        )
 
 
 def sweep(
@@ -102,39 +374,101 @@ def sweep(
     axis: Sequence[float] = (0.0, -1.0, 0.0),
     travel: float = 60.0,
     step: float = 1.0,
+    *,
+    max_evaluations: int = 2048,
 ) -> dict[tuple[str, str], float]:
-    """Move `moving` into its final place along `axis`, from `travel` mm out.
+    """Certify linear insertion, including both endpoints and between samples.
 
-    Returns {(moving part, installed part): distance from home at first contact}.
-    Empty means that assembly step goes in without a collision.
+    `axis` is a unit direction; `step` is the initial interval width, not a
+    collision sampling resolution. Swept boxes reject distant intervals. A
+    midpoint separation greater than half the interval certifies the interval
+    by the distance Lipschitz bound. Near contact, intersection volume can grow
+    by at most surface area times translation distance (finite-perimeter bound).
+    Otherwise subdivide. Contacts above VOLUME_TOL, or intervals that cannot be
+    certified within 2048 subdivisions per pair, are returned as failures.
+
+    Returns {(moving, installed): witness/uncertified distance from home}; this
+    is deliberately not a claim of an exact first-contact position. No global
+    shape cache is retained between calls.
     """
-    # A translated box has exactly the translated bounds. Cache these once:
-    # rebuilding OCCT boxes for every pair at every step dominates detailed
-    # connector sweeps. Potential contacts still use the same solid Boolean,
-    # sampling positions and volume threshold below.
-    bounds = {
-        n: (tuple(parts[n].bounding_box().min), tuple(parts[n].bounding_box().max))
-        for n in set(moving) | set(installed)
-    }
-    hits, d = {}, travel
-    while d > 1e-9:
-        off = Pos(-axis[0] * d, -axis[1] * d, -axis[2] * d)
-        for m in moving:
-            low, high = bounds[m]
-            shift = tuple(-v * d for v in axis)
-            sm = None
-            for n in installed:
-                nl, nh = bounds[n]
-                if any(
-                    high[i] + shift[i] < nl[i] - 1e-9 or low[i] + shift[i] > nh[i] + 1e-9
-                    for i in range(3)
-                ):
+    if not math.isfinite(travel) or travel < 0 or not math.isfinite(step) or step <= 0:
+        raise ValueError("travel must be finite and nonnegative; step must be positive")
+    axis = tuple(float(v) for v in axis)
+    if len(axis) != 3 or not math.isclose(math.hypot(*axis), 1.0, abs_tol=1e-9):
+        raise ValueError("axis must be a finite unit vector")
+    bounds = {n: _bounds(parts[n]) for n in set(moving) | set(installed)}
+    areas = {}
+    envelopes = {}
+    hits = SweepHits()
+    for m in moving:
+        low, high = bounds[m]
+        for n in installed:
+
+            def swept_box(lo, hi, low=low, high=high):
+                return (
+                    tuple(low[i] + min(-axis[i] * lo, -axis[i] * hi) for i in range(3)),
+                    tuple(high[i] + max(-axis[i] * lo, -axis[i] * hi) for i in range(3)),
+                )
+
+            if not _boxes_meet(swept_box(0, travel), bounds[n]):
+                continue
+            if travel > 0:
+                # Axial hardware and tubes can have long sliding contacts or
+                # tiny running clearances. Their exact swept occupancy is both
+                # stronger and much cheaper than distance-based subdivision.
+                if m not in envelopes:
+                    envelopes[m] = _linear_envelope(parts[m], tuple(-v for v in axis), travel)
+                envelope = envelopes[m]
+                if envelope is not None and overlap(envelope, parts[n]) <= VOLUME_TOL:
                     continue
-                if sm is None:
-                    sm = off * parts[m]
-                if (m, n) not in hits and overlap(sm, parts[n]) > 1e-3:
-                    hits[(m, n)] = d
-        d -= step
+                # Sweeping the fixed object in the opposite relative direction
+                # describes the same set of collisions.
+                if n not in envelopes:
+                    envelopes[n] = _linear_envelope(parts[n], axis, travel)
+                envelope = envelopes[n]
+                if envelope is not None and overlap(envelope, parts[m]) <= VOLUME_TOL:
+                    continue
+            # Include the seated position; static interference remains a separate
+            # station check, but the generic motion checker must also cover it.
+            intervals = [(max(0.0, d - step), d) for d in np.arange(travel, 0, -step)][::-1] or [
+                (0.0, 0.0)
+            ]
+            queries = 0
+            while intervals:
+                lo, hi = intervals.pop()
+                sb = swept_box(lo, hi)
+                # The intersection of swept AABBs also bounds intersection
+                # volume. In particular, planar sliding/touching is certified
+                # without subdividing an entire zero-clearance contact path.
+                box_volume = math.prod(
+                    max(0.0, min(sb[1][i], bounds[n][1][i]) - max(sb[0][i], bounds[n][0][i]))
+                    for i in range(3)
+                )
+                if box_volume <= VOLUME_TOL:
+                    continue
+                mid, radius = (lo + hi) / 2, (hi - lo) / 2
+                if queries >= max_evaluations:
+                    # Fail closed: never turn an unresolved near-contact motion
+                    # into a clear path merely because an evaluation budget ran out.
+                    hits[(m, n)] = mid
+                    hits.unresolved.add((m, n))
+                    break
+                queries += 1
+                if queries == 64 and _slab_motion_clear(parts[m], parts[n], axis, travel):
+                    break
+                moved = Pos(*(-v * mid for v in axis)) * parts[m]
+                distance = moved.distance_to(parts[n])
+                if distance > radius + GEOMETRY_EPS:
+                    continue
+                volume = 0.0 if distance > GEOMETRY_EPS else _common_volume(moved, parts[n])
+                if volume > VOLUME_TOL:
+                    hits[(m, n)] = mid
+                    break
+                if m not in areas:
+                    areas[m] = parts[m].area
+                if volume + areas[m] * radius <= VOLUME_TOL:
+                    continue
+                intervals.extend(((lo, mid), (mid, hi)))
     return hits
 
 
@@ -178,34 +512,85 @@ def overhangs(
     return spans, bad
 
 
-def min_wall(solid: Solid, per_face: int = 150) -> float:
-    """Smallest material thickness (mm), by rays fired inward from surface points."""
+@dataclass(frozen=True)
+class WallMeasurement:
+    """Sampling evidence, not a certified global minimum thickness."""
+
+    minimum: float
+    rays: int
+    hits: int
+    measured_faces: int
+    faces: int
+
+
+def wall_measurement(solid: Solid, per_face: int = 150) -> WallMeasurement:
+    """Estimate thickness and expose coverage; reject absent measurements.
+
+    Keep the existing seeded surface samples and add each face's tessellated
+    triangle centroid nearest its centre to probe face interiors as well as
+    edges. This is still a sampled estimate, requiring physical confirmation.
+    """
     from OCP.BRepClass3d import BRepClass3d_SolidClassifier
     from OCP.gp import gp_Dir, gp_Lin, gp_Pnt
     from OCP.IntCurvesFace import IntCurvesFace_ShapeIntersector
     from OCP.TopAbs import TopAbs_IN
 
+    if per_face <= 0 or not solid.solids():
+        raise ValueError("wall measurement needs a solid and positive sample budget")
     inter = IntCurvesFace_ShapeIntersector()
     inter.Load(solid.wrapped, 1e-6)
-    rng, worst = np.random.default_rng(0), 1e9
+    rng, worst = np.random.default_rng(0), math.inf
+    rays, hits, measured_faces = 0, 0, 0
     for f in solid.faces():
-        verts, _ = f.tessellate(0.2, 0.5)
+        verts, triangles = f.tessellate(0.2, 0.5)
         pts = np.array([(v.X, v.Y, v.Z) for v in verts])  # vertices lie on the surface
         if len(pts) > per_face:
             pts = pts[rng.choice(len(pts), per_face, replace=False)]
+        # A planar triangle centroid is on the surface; curved triangle
+        # centroids are chord points and must not be treated as surface points.
+        if triangles and f.geom_type.name == "PLANE":
+            mesh = np.array([(v.X, v.Y, v.Z) for v in verts])
+            centres = mesh[np.array(triangles)].mean(axis=1)
+            centre = np.array(tuple(f.center()))
+            pts = np.vstack((pts, centres[np.linalg.norm(centres - centre, axis=1).argmin()]))
+        elif f.geom_type.name in ("CYLINDER", "CONE", "TORUS", "SPHERE"):
+            # Parametric evaluation lies on the exact curved surface; unlike
+            # triangle centroids these points are not inside tessellation chords.
+            exact = [f.position_at(u, v) for u in (0.25, 0.5, 0.75) for v in (0.25, 0.5, 0.75)]
+            exact = [tuple(p) for p in exact if f.is_inside(p)]
+            if exact:
+                pts = np.vstack((pts, exact))
+        face_hits = 0
         for c in pts:
+            rays += 1
             nv = f.normal_at(Vector(*c))
             d = -np.array((nv.X, nv.Y, nv.Z))
             probe = BRepClass3d_SolidClassifier(solid.wrapped, gp_Pnt(*(c + 0.01 * d)), 1e-7)
             if probe.State() != TopAbs_IN:
                 d = -d
+                probe.Perform(gp_Pnt(*(c + 0.01 * d)), 1e-7)
+                if probe.State() != TopAbs_IN:
+                    continue
             p0 = c + 1e-4 * d
             inter.Perform(gp_Lin(gp_Pnt(*p0), gp_Dir(*d)), 0.0, 1e3)
             ws = [inter.WParameter(i) for i in range(1, inter.NbPnt() + 1)]
             ws = [w for w in ws if w > 5e-3]
             if ws:
                 worst = min(worst, min(ws))
-    return worst
+                hits += 1
+                face_hits += 1
+        measured_faces += face_hits > 0
+    if not hits or measured_faces != len(solid.faces()):
+        raise ValueError(
+            f"incomplete wall measurement: {measured_faces}/{len(solid.faces())} "
+            f"faces, {hits}/{rays} rays returned thickness"
+        )
+    return WallMeasurement(worst, rays, hits, measured_faces, len(solid.faces()))
+
+
+def min_wall(solid: Solid, per_face: int = 150) -> float:
+    """Sampled thickness estimate in mm; raises when coverage is incomplete."""
+    return wall_measurement(solid, per_face).minimum
 
 
 def is_flat_profile(solid: Solid, thickness: float, axis: int = 1) -> bool:

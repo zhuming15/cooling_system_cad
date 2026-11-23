@@ -20,6 +20,12 @@ def part() -> Box:
     return Box(20, 20, 10) - Cylinder(3, 20)
 
 
+def hex_part():
+    from build123d import RegularPolygon, extrude
+
+    return extrude(RegularPolygon(10, 6), 5)
+
+
 def write_stl(solid, path, shift=(0, 0, 0)) -> None:
     tris = CC.tessellate(Pos(*shift) * solid, 0.01)
     with open(path, "w") as f:
@@ -66,6 +72,42 @@ def test_transform_round_trip():
 def test_compare_passes_an_exact_model(tmp_path):
     write_stl(part(), tmp_path / "v.stl")
     assert CC.compare(dict(SPEC), tmp_path / "v.stl", quiet=True)["pass"]
+
+
+@pytest.mark.parametrize("extension", ["stl", "step"])
+def test_required_fit_zone_without_measurements_fails(tmp_path, extension):
+    path = tmp_path / f"v.{extension}"
+    if extension == "stl":
+        write_stl(part(), path)
+    else:
+        export_step(part(), path)
+    spec = dict(
+        SPEC, zones=[{"name": "missing fit", "kind": "fit", "box": [100, 101, 100, 101, 100, 101]}]
+    )
+    result = CC.compare(spec, path, quiet=True)
+    assert not result["pass"]
+    assert not result["missing fit [vendor coverage]"][5]
+    assert not result["missing fit [model coverage]"][5]
+
+
+def test_invalid_zone_kind_cannot_silently_skip_a_fit_check(tmp_path):
+    spec = dict(SPEC, zones=[dict(SPEC["zones"][0], kind="fitt")])
+    with pytest.raises(ValueError, match="valid kind"):
+        CC.compare(spec, tmp_path / "unused.stl", quiet=True)
+
+
+def test_flat_fit_zone_gets_exact_interior_samples(tmp_path):
+    path = tmp_path / "hex.step"
+    export_step(hex_part(), path)
+    spec = dict(
+        SPEC,
+        part="test_vendor_tools:hex_part",
+        zones=[{"name": "hex flats", "kind": "fit", "cyl": ["z", 8, 11, 0.1, 4.9]}],
+    )
+    result = CC.compare(spec, path, quiet=True)
+    assert result["pass"]
+    assert result["hex flats [vendor->ours]"][1] > 0
+    assert result["hex flats [ours->vendor]"][1] > 0
 
 
 def test_compare_fails_a_fit_zone_off_by_005(tmp_path):
