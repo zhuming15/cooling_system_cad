@@ -58,7 +58,14 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-for sub in ("", "valve", "valve_connector", "flowmeter", "flowmeter_connector"):
+for sub in (
+    "",
+    "valve",
+    "valve_connector",
+    "flowmeter",
+    "flowmeter_connector",
+    "flowmeter_electronic_interconnect",
+):
     sys.path.insert(0, str(ROOT / sub))
 
 FIT_TOL = 0.02  # mm: measurement noise only ("fit-critical must be exact", user 2026-11-23)

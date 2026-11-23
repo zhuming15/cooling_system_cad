@@ -1,0 +1,8 @@
+{
+  "title":"MSAP-04BFFC-SR7001 OEM drawing rev F",
+  "part":"flowmeter_electronic_interconnect:make_interconnect",
+  "page":1,
+  "dpi":154,
+  "out":"flowmeter_electronic_interconnect/drawing_check.png",
+  "views":[{"name":"Side view (39.3 mm reference)","crop":[260,510,1300,1575],"px_per_mm":6.06,"origin_px":[1379.38,333.0],"axes":[0,2]}]
+}

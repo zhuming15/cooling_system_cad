@@ -1,0 +1,54 @@
+{
+  "title": "MSAP-04BFFC-SR7001 vs OEM STEP",
+  "part": "flowmeter_electronic_interconnect:make_interconnect",
+  "to_vendor": "plane((-37.8234199832, -20.04091179467, 4.597527882265), (0.4003508552591739, 0.7371714422559708, -0.5443321205068647), (0.43767928846680704, -0.6757053212527109, -0.5931771735982095))",
+  "section_axis": 2,
+  "zones": [
+    {
+      "name": "M12 helical female thread replaced by major-diameter bore including lead-in",
+      "kind": "skip",
+      "cyl": [
+        "x",
+        5.45,
+        6.46,
+        -7.851,
+        1.301
+      ]
+    },
+    {
+      "name": "A-coded insert, contacts and seal",
+      "kind": "fit",
+      "cyl": [
+        "x",
+        0,
+        5.1,
+        -9.701,
+        1.301
+      ]
+    },
+    {
+      "name": "Connector spanner flats",
+      "kind": "fit",
+      "cyl": [
+        "x",
+        7.9,
+        9.01,
+        -1.70001,
+        2.29856
+      ]
+    },
+    {
+      "name": "Gland spanner flats",
+      "kind": "fit",
+      "box": [
+        11,
+        30,
+        -9.1,
+        9.1,
+        -26.50001,
+        -23.49999
+      ]
+    }
+  ],
+  "out": "flowmeter_electronic_interconnect/cad_check.png"
+}

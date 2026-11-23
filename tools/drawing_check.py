@@ -39,7 +39,14 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-for sub in ("", "valve", "valve_connector", "flowmeter", "flowmeter_connector"):
+for sub in (
+    "",
+    "valve",
+    "valve_connector",
+    "flowmeter",
+    "flowmeter_connector",
+    "flowmeter_electronic_interconnect",
+):
     sys.path.insert(0, str(ROOT / sub))
 
 

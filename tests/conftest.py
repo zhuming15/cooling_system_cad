@@ -17,6 +17,7 @@ for sub in (
     "valve_clamp",
     "flowmeter",
     "flowmeter_connector",
+    "flowmeter_electronic_interconnect",
     "flowmeter_clamp",
 ):
     sys.path.insert(0, str(ROOT / sub))
