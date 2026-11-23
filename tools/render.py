@@ -27,10 +27,14 @@ for sub in (
     "flowmeter",
     "flowmeter_connector",
     "flowmeter_clamp",
+    "flowmeter_electronic_interconnect",
 ):
     sys.path.insert(0, str(ROOT / sub))
 
 COLORS = {
+    "electrical_contact": "#c8a64a",
+    "electrical_seal": "#899097",
+    "electrical_": "#353b43",
     "valve_body": "#c9ccd1",
     "valve_bonnet": "#aeb3ba",
     "valve_knob": "#c8a64a",
@@ -140,7 +144,12 @@ def render_components(path: Path) -> None:
     valve = split_knob({f"valve_{k}": s for k, s in V.make_valve_parts().items()})
     flowmeter = [(s, color_of(f"flowmeter_{n}")) for n, s in FM.make_flowmeter_parts().items()]
     qsf = [(s, color_of(f"qsf_{n}")) for n, s in FC.make_fitting_parts().items()]
-    fitted = list(flowmeter)
+    import flowmeter_electronic_interconnect as FEI
+
+    electrical = [
+        (s, color_of(f"electrical_{n}")) for n, s in FEI.make_interconnect_parts().items()
+    ]
+    fitted = list(flowmeter) + [(A.interconnect_location() * s, c) for s, c in electrical]
     x_face = FM.L_TOTAL / 2 - FM.THREAD_L  # fitting face at the thread run-out
     for sgn in (-1, 1):
         fitted += [(Pos(sgn * x_face, 0, 0) * Rot(0, sgn * 90, 0) * s, c) for s, c in qsf]
@@ -180,7 +189,8 @@ def render_components(path: Path) -> None:
         ),
         ("Flowmeter - ifm SV3051 (G1/2 male, 0.5-10 l/min)", flowmeter, (25, -60), (0, -90), None),
         ("Flowmeter connector - Festo QSF-1/2-12-B (x2)", qsf, (25, 40), (0, 0), None),
-        ("Flowmeter with 2 x QSF-1/2-12-B fitted", fitted, (25, -60), (0, -90), None),
+        ("MSAP-04BFFC-SR7001 A-coded M12 elbow", electrical, (20, 220), (20, 40), None),
+        ("Flowmeter with QSF fittings and A-coded M12 elbow", fitted, (25, -60), (0, -90), None),
         (
             "Flowmeter clamp base + 2 straps (3D printed PETG), dowels, inserts, M4",
             [(FCL.make_base(A.X_FM, -A.FLOW_DIR), COLORS["fm_clamp"])]
@@ -215,12 +225,35 @@ def render_components(path: Path) -> None:
     plt.close(fig)
 
 
+def render_fitted_flowmeter(parts, path):
+    selected = [
+        (p, color_of(n))
+        for n, p in parts.items()
+        if n.startswith(("flowmeter_", "qsf_", "electrical_"))
+    ]
+    tri, col, lo, hi = shaded_tris(selected, 0.05)
+    fig = plt.figure(figsize=(12, 6))
+    for i, (elev, azim) in enumerate(((20, 60), (15, 135)), 1):
+        ax = fig.add_subplot(1, 2, i, projection="3d")
+        ax.add_collection3d(Poly3DCollection(tri, facecolors=col, linewidths=0))
+        _frame(ax, lo, hi, elev, azim)
+        ax.set_axis_off()
+    fig.suptitle(
+        "ifm SV3051 + Amphenol MSAP-04BFFC-SR7001 (A-coded)\n"
+        "Physical mating confirmed; nominal CAD diameter discrepancy documented"
+    )
+    fig.tight_layout()
+    fig.savefig(path, dpi=160)
+    plt.close(fig)
+
+
 def main() -> None:
     import assembly as A
 
     OUTPUT.mkdir(exist_ok=True)
     render_assembly(A.build(), OUTPUT / "assembly.png")
     render_components(OUTPUT / "components.png")
+    render_fitted_flowmeter(A.build(), OUTPUT / "flowmeter_fitted.png")
     print(f"Saved {OUTPUT / 'assembly.png'} and {OUTPUT / 'components.png'}")
 
 

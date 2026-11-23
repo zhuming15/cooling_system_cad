@@ -67,6 +67,8 @@ BODY_D = FC.BODY_D  # 20.8, round body of the QSF (catalogue D5)
 POCKET_CLR = C.POCKET_CLR  # 0.15 - same as the valve channel -> same axis height
 POCKET_D = BODY_D + POCKET_CLR
 SPLIT_GAP = C.SPLIT_GAP  # 0.5
+STRAP_TORQUE = 0.55  # N.m, design setting for MSAP elbow cable lever; preload/friction
+# remain estimates. Verified against 5x cable-pull margin and PETG bearing pressure.
 
 # Round section of the QSF, in fitting-local Z (port face = 0): from the end of
 # the hex chamfer cone (v = 19.8) to the start of the release-ring shoulder (v = 4.5)
@@ -271,7 +273,7 @@ if __name__ == "__main__":
             f"{n}: {bb.size.X:.1f} x {bb.size.Y:.1f} x {bb.size.Z:.1f} mm, {p.volume * rho:.0f} g ({mat})"
         )
     print(
-        f"straps: 2 x M4x{CAP_SCREW_LEN:.0f} + DIN 125 each into inserts, {C.CAP_TORQUE} N.m; "
+        f"straps: 2 x M4x{CAP_SCREW_LEN:.0f} + DIN 125 each into inserts, {STRAP_TORQUE} N.m; "
         f"base: 2 x M4x{MOUNT_LEN:.0f} into captive nuts, {C.MOUNT_TORQUE} N.m; 2 x dowel 4 m6 x 12"
     )
     print("Exported base_back/base_front .dxf (laser cutting) in flowmeter_clamp/")

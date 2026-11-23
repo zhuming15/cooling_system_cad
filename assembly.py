@@ -21,6 +21,7 @@ Exit code is non-zero if any design check fails.
 """
 
 import sys
+from math import cos, hypot, radians, sin
 from pathlib import Path
 
 from build123d import Align, Location, Pos, Rot, Solid, export_step
@@ -36,6 +37,7 @@ for sub in (
     "flowmeter",
     "flowmeter_connector",
     "flowmeter_clamp",
+    "flowmeter_electronic_interconnect",
 ):
     sys.path.insert(0, str(ROOT / sub))
 
@@ -45,6 +47,7 @@ import clamp as C
 import flowmeter as FM
 import flowmeter_clamp as FCL
 import flowmeter_connector as FC
+import flowmeter_electronic_interconnect as FEI
 import valve as V
 import valve_connector as F
 from tools import checks as CK
@@ -75,7 +78,16 @@ ASSEMBLY_ORDER = (
     ("base mount screws", ("m4_mount_screw",)),
     (
         "bench unit: valve + KQ2 + link tube + flowmeter + QSF",
-        ("valve_body", "valve_bonnet", "valve_knob", "fitting_", "tube_link", "flowmeter_", "qsf_"),
+        (
+            "valve_body",
+            "valve_bonnet",
+            "valve_knob",
+            "fitting_",
+            "tube_link",
+            "flowmeter_",
+            "qsf_",
+            "electrical_",
+        ),
     ),
     (
         "valve cap, straps, washers, screws",
@@ -140,6 +152,10 @@ def build() -> dict[str, Solid]:
     # ON TOP (global +Z) - ifm manual Fig. 1, horizontal pipe, recommended
     fm_place = Location(Plane(origin=(X_FM, FCL.FM_Y, 0), x_dir=(-FLOW_DIR, 0, 0), z_dir=(0, 0, 1)))
     parts |= {f"flowmeter_{k}": fm_place * s for k, s in FM.make_flowmeter_parts().items()}
+    parts |= {
+        f"electrical_{k}": fm_place * interconnect_location() * s
+        for k, s in FEI.make_interconnect_parts().items()
+    }
     qsf = FC.make_fitting_parts()
     for side, sgn in (("in", 1), ("out", -1)):  # flowmeter local +X = inlet
         place = fm_place * Pos(sgn * FCL.X_FACE, 0, 0) * Rot(0, sgn * 90, 0)
@@ -166,6 +182,20 @@ def build() -> dict[str, Solid]:
     for i, s in enumerate(C.make_wall_screws() + FCL.make_wall_screws(X_FM)):
         parts[f"wall_screw_{i}"] = s
     return parts
+
+
+def interconnect_location() -> Location:
+    """Plug in the flowmeter-local frame, A key aligned, seal just touching.
+
+    The uncompressed seal's front tangent seats on the OEM M12 top face.
+    No guessed O-ring compression or tightening torque is imposed. The elbow
+    outlet points diagonally toward the operator and downstream for FLOW_DIR=-1.
+    """
+    key = radians(FM.M12_KEY["angle"])
+    seat_z = FM.Z_TOP - (FEI.SEAL_X - FEI.SEAL_MINOR_R)
+    return Location(
+        Plane(origin=(FM.M12_X, 0, seat_z), x_dir=(0, 0, 1), z_dir=(cos(key), sin(key), 0))
+    )
 
 
 def make_link_tube() -> Solid:
@@ -204,10 +234,36 @@ def verify(parts: dict[str, Solid], r: Report | None = None) -> int:
 def check_interference(parts: dict[str, Solid], r: Report) -> None:
     r.start("1. Interference (all part pairs)")
     worst = CK.interferences(parts)
+    mating_pair = {"flowmeter_m12", "electrical_insert"}
+    remaining = []
+    for volume, a, b in worst:
+        if {a, b} == mating_pair:
+            # User dry-fit confirmation (2026-11-23): exact parts mate. The OEM
+            # nominal CAD differs by 0.025 mm in radius. Only this source-defined
+            # cylindrical skin is intentional; misalignment/key clashes remain
+            # subject to the original 0.001 mm³ interference threshold.
+            mb = parts["flowmeter_m12"].bounding_box()
+            h = FM.Z_TOP - FM.M12_SOCKET["floor"]
+            origin = Pos(mb.center().X, mb.center().Y, mb.max.Z - h)
+            skin = origin * (
+                Cylinder(FEI.INSERT_R, h, align=ALIGN_MIN)
+                - Cylinder(FM.M12_SOCKET["r"], h, align=ALIGN_MIN)
+            )
+            common = parts[a] & parts[b]
+            outside = common - skin
+            volume = sum(s.volume for s in outside.solids()) if outside else 0.0
+            r.info(
+                "User-confirmed physical M12 fit: nominal Ø8.20/Ø8.15 CAD skin "
+                f"accounted for; unintended overlap {volume:.6f} mm3"
+            )
+        if volume > 1e-3:
+            remaining.append((volume, a, b))
     r.check(
         "no solid interference",
-        not worst,
-        "0 clashes" if not worst else "; ".join(f"{a}/{b} {v:.2f}mm3" for v, a, b in worst),
+        not remaining,
+        "0 unintended clashes"
+        if not remaining
+        else "; ".join(f"{a}/{b} {v:.2f}mm3" for v, a, b in remaining),
     )
 
 
@@ -478,7 +534,7 @@ def check_modules(parts: dict[str, Solid], r: Report) -> None:
     washer_a = 3.14159 / 4 * (C.WASHER[0] ** 2 - C.WASHER[1] ** 2)
     head_a = 3.14159 / 4 * (C.M4_HEAD[0] ** 2 - C.M4_CLR_D**2)
     nut_a = 3**0.5 / 2 * C.NUT_AF**2 - 3.14159 / 4 * C.M4_CLR_D**2
-    p_w = C.preload(C.CAP_TORQUE) / washer_a
+    p_w = C.preload(max(C.CAP_TORQUE, FCL.STRAP_TORQUE)) / washer_a
     p_h = C.preload(C.MOUNT_TORQUE) / head_a
     p_n = C.preload(C.MOUNT_TORQUE) / nut_a
     r.check(
@@ -511,7 +567,8 @@ def check_modules(parts: dict[str, Solid], r: Report) -> None:
         f"largest printed part {big:.0f} mm (flowmeter base); the 300 mm plate is laser-cut",
     )
     print(
-        f"  [INFO] torque: caps/straps {C.CAP_TORQUE} N.m, bases {C.MOUNT_TORQUE} N.m; "
+        f"  [INFO] torque: valve cap {C.CAP_TORQUE}, straps {FCL.STRAP_TORQUE}, "
+        f"bases {C.MOUNT_TORQUE} N.m; "
         "re-torque after 24 h (plastic creep)"
     )
 
@@ -854,12 +911,12 @@ def check_flowmeter_clamp(parts: dict[str, Solid], r: Report) -> None:
     # --- Holding (round grip, so friction + pad) ----------------------------------
     # Preload per strap: 2 x M4 into heat-set inserts at low torque. Normal force on
     # the round body is F on the strap half plus F on the base half.
-    f_strap = 2 * C.preload(C.CAP_TORQUE)
+    f_strap = 2 * C.preload(FCL.STRAP_TORQUE)
     t_slip = C.MU * 2 * f_strap * FCL.BODY_D / 2 / 1000  # N.m per strap
     r.check(
         "tube pull held by each strap > 500 N",
         2 * C.MU * f_strap > 500,
-        f"{2 * C.MU * f_strap:.0f} N per strap (2 x M4 {C.CAP_TORQUE} N.m, mu {C.MU}) "
+        f"{2 * C.MU * f_strap:.0f} N per strap (2 x M4 {FCL.STRAP_TORQUE} N.m, mu {C.MU}) "
         "-> tube loads go fitting -> strap -> wall, not through the meter",
     )
     print(
@@ -867,15 +924,22 @@ def check_flowmeter_clamp(parts: dict[str, Solid], r: Report) -> None:
         f" the printed straps ({t_slip:.1f} N.m slip each) never react thread torque"
     )
     # Load that could turn the meter: someone pulls/drapes the M12 cable sideways,
-    # 50 N at the plug, lever = M12 top above the flow axis. Push-in tubes swivel
-    # in their collets, so tube torque is negligible.
-    lever = parts["flowmeter_m12"].bounding_box().max.Z / 1000  # M12 top above the axis
+    # 50 N in the worst direction at the cable-exit centre. Include its Y
+    # offset as well as Z height; derive the point from the placed entry arc.
+    exit_point = next(
+        e.arc_center
+        for e in parts["electrical_gland"].edges()
+        if e.geom_type.name == "CIRCLE" and abs(e.radius - FEI.GLAND_BORE[0][0]) < 1e-5
+    )
+    pipe_axis = parts["flowmeter_pipe"].bounding_box().center()
+    lever = hypot(exit_point.Y - pipe_axis.Y, exit_point.Z - pipe_axis.Z) / 1000
     t_cable = 50.0 * lever
     t_hold = 2 * t_slip
     r.check(
         "meter can't rotate under a 50 N cable pull",
         t_hold >= 5 * t_cable,
-        f"cable {t_cable:.1f} N.m vs friction {t_hold:.1f} N.m (x{t_hold / t_cable:.1f}), "
+        f"cable {t_cable:.2f} N.m ({lever * 1000:.2f} mm arm) vs friction "
+        f"{t_hold:.2f} N.m (x{t_hold / t_cable:.2f}), "
         "plus the spanner-flat pad as a positive stop",
     )
     p_contact = f_strap / (FCL.BODY_D * FCL.STRAP_W)
@@ -893,7 +957,7 @@ def check_flowmeter_access(parts: dict[str, Solid], r: Report) -> None:
     plug = Pos(mb.center().X, mb.center().Y, mb.max.Z + 0.1) * Cylinder(
         10.0, 55, align=ALIGN_MIN
     )  # straight M12 plug, pointing up
-    blocked = ray_clear(parts, plug, set())
+    blocked = ray_clear(parts, plug, {n for n in parts if n.startswith("electrical_")})
     r.check(
         "M12 cable plug envelope (dia 20 x 55) clear",
         not blocked,
@@ -947,6 +1011,64 @@ def check_flowmeter_access(parts: dict[str, Solid], r: Report) -> None:
     print("  [INFO] tighten QSF onto the flowmeter <= 12 N.m (ifm), with a flat G1/2 washer")
 
 
+def check_electrical_interconnect(parts: dict[str, Solid], r: Report) -> None:
+    r.start("12. A-coded electrical interconnect")
+    mb = parts["flowmeter_m12"].bounding_box()
+    insert = parts["electrical_insert"]
+    seal = parts["electrical_seal"].bounding_box()
+    # Measure the placed geometry, so translated/rotated plugs fail these checks.
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+
+    cylinders = [
+        BRepAdaptor_Surface(f.wrapped).Cylinder()
+        for f in insert.faces()
+        if f.geom_type.name == "CYLINDER"
+    ]
+    axis = next(c.Axis() for c in cylinders if abs(c.Radius() - FEI.INSERT_R) < 1e-6)
+    x, y, _ = axis.Location().Coord()
+    r.check(
+        "M12 plug coaxial with flowmeter",
+        abs(x - mb.center().X) < 1e-5
+        and abs(y - mb.center().Y) < 1e-5
+        and abs(axis.Direction().Z()) > 1 - 1e-6,
+        f"plug axis ({x:.3f}, {y:.3f}); meter ({mb.center().X:.3f}, {mb.center().Y:.3f})",
+    )
+    r.check(
+        "M12 seal at mating face",
+        abs(seal.min.Z - mb.max.Z) < 1e-5,
+        f"uncompressed seal tangent {seal.min.Z:.3f}; meter face {mb.max.Z:.3f}",
+    )
+    angle = radians(FM.M12_KEY["angle"])
+    direction = (-FLOW_DIR * cos(angle), -FLOW_DIR * sin(angle))
+    z = insert.bounding_box().min.Z + 0.1
+
+    def probe(side):
+        return (
+            mb.center().X + side * FEI.KEY_Z * direction[0],
+            mb.center().Y + side * FEI.KEY_Z * direction[1],
+            z,
+        )
+
+    r.check(
+        "M12 A-code keys aligned",
+        not insert.is_inside(probe(1)) and insert.is_inside(probe(-1)),
+        "plug notch faces the flowmeter coding rib",
+    )
+    moving = [n for n in parts if n.startswith("electrical_")]
+    fixed = [n for n in parts if n not in moving and n != "flowmeter_m12"]
+    hits = sweep(parts, moving, fixed, axis=(0, 0, -1), travel=40, step=2)
+    r.check(
+        "M12 plug insertion clear of station",
+        not hits,
+        "40 mm vertical approach; mating socket checked separately" if not hits else str(hits),
+    )
+    r.info(
+        "OEM nominal CAD mismatch: insert diameter 8.20 vs socket 8.15 mm; "
+        "physical mating confirmed by user; only that nominal cylindrical skin "
+        "is accounted for in the all-pairs check."
+    )
+
+
 SECTIONS = (
     check_interference,
     check_valve_clamp,
@@ -957,6 +1079,7 @@ SECTIONS = (
     check_alignment,
     check_flowmeter_clamp,
     check_flowmeter_access,
+    check_electrical_interconnect,
     check_modules,
     check_assembly_order,
     check_printing,

@@ -99,9 +99,20 @@ hexagon or plain cylinder would lose. Coordinates are rounded to 1e-8 mm.
 
 ## Modeling scope
 
-Standalone component, not yet placed in the station assembly or BOM. M12
-coding is A, matching the coding documented for the SV3051. Mechanical
-mating and wiring are outside the standalone component verification.
+The component is placed in `assembly.build()` and counted once in the station
+BOM. M12 coding is A, matching the coding documented for the SV3051. The
+uncompressed seal tangent seats on the M12 top at Z42.25, giving a plug datum
+at Z43.75; the key follows the ifm −45° phase. The cable outlet points outward
+and downstream. No wiring assignment or cable routing is modeled.
+
+The source CAD dimensions conflict at the mating cylinder: Amphenol insert
+Ø8.20 mm versus ifm socket Ø8.15 mm. Nominal mating overlaps by about 5.00 mm³
+(0.025 mm radially). The source geometry and strict interference check remain
+unchanged. **The user confirmed on 2026-11-23 that these exact parts fit
+together physically.** The all-pairs check accounts for only the nominal
+0.025 mm radial cylindrical skin at this pair, with the original 0.001 mm³
+limit everywhere outside it. A deliberate insert offset fails the check.
+Standalone CAD geometry remains unchanged and source-verified.
 
 The M12 female thread is represented at its major diameter with a cosmetic
 lead-in. That difference is the named skip zone. The gland's secondary
@@ -145,4 +156,23 @@ about 238 pixels, checked against Ø18.6 and the 35.5 mm vertical reference.
 
 The standalone STEP is
 `output/flowmeter_electronic_interconnect_msap-04bffc-sr7001.step`; the preview
-is `output/flowmeter_electronic_interconnect.png`. The station exports remain independent of this standalone component.
+is `output/flowmeter_electronic_interconnect.png`. The station exporter also includes this component in its assembly, per-part
+STEP and BOM.
+
+## Station integration verification
+
+- User-confirmed dry fit of these exact parts, recorded 2026-11-23.
+- Coaxial mating, A-code key phase, uncompressed seal datum, vertical insertion,
+  and station assembly order checked from placed geometry.
+- All **71 station design checks** pass; full pytest **63 passed**.
+- OEM CAD comparison re-run after integration: **PASS**, with the same
+  <0.001 mm fit and 0.414 mm maximum exterior deviations. CAD and drawing
+  comparison images inspected again. Ruff clean.
+- Flowmeter strap torque changed to 0.55 N·m; valve cap remains 0.5 N·m.
+  The placed cable-exit centre has a 67.12 mm arm about the flow axis. Estimated
+  friction gives ×5.11 margin at 50 N; washer pressure 14.0/15 MPa. Friction,
+  preload and PETG strength remain engineering estimates; recheck torque after
+  24 hours. Negative tests reject 0.5 N·m (pull margin) and 0.6 N·m (PETG stress).
+- STEP export/re-import verifies 75 solids in the station, with 21 distinct
+  components in its BOM, including one MSAP connector. A dedicated fitted
+  flowmeter STEP and PNG are in `output/flowmeter_fitted.*`.

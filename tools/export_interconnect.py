@@ -2,8 +2,9 @@
 
     uv run python tools/export_interconnect.py
 
-This command exports the standalone connector; it is not yet in the station
-assembly or BOM. Vendor source files are never needed to build it.
+The station exporter also includes this part in assembly.build() and the BOM.
+This command retains a convenient standalone preview and STEP. Vendor source
+files are never needed to build it.
 """
 
 import sys

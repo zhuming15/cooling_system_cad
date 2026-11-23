@@ -31,6 +31,7 @@ DRAFT = Draft(
 
 # assembly part-name prefix -> (group name, title); one representative each
 GROUPS = {
+    "electrical_": ("electrical", "M12 A-coded elbow MSAP-04BFFC-SR7001"),
     "valve_": ("valve", "Valve RS 283-8289 (Tognella FT 1251/2-01-14)"),
     "fitting_A": ("valve_fitting", "Valve fitting SMC KQ2H12-U02A (x2)"),
     "flowmeter_": ("flowmeter", "Flowmeter ifm SV3051"),

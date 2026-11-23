@@ -28,6 +28,7 @@ for sub in (
     "flowmeter",
     "flowmeter_connector",
     "flowmeter_clamp",
+    "flowmeter_electronic_interconnect",
 ):
     sys.path.insert(0, str(ROOT / sub))
 
@@ -65,6 +66,7 @@ def exploded(parts):
         "valve": 45,
         "fitting": 45,
         "flowmeter": 45,
+        "electrical_": 45,
         "qsf": 45,
         "tube": 45,
     }
@@ -83,7 +85,7 @@ def exploded(parts):
         for k, (mag, ref) in side.items():
             if n.startswith(k):
                 dx = mag if p.bounding_box().center().X > ref else -mag
-        out[n] = Pos(dx, dy, 0) * p
+        out[n] = Pos(dx, dy, 35 if n.startswith("electrical_") else 0) * p
     return out
 
 
@@ -152,6 +154,12 @@ def main() -> None:
         if a.what == "flowmeter_connector":
             layout |= qsf
         elif a.what == "flowmeter_fitted":
+            import flowmeter_electronic_interconnect as FEI
+
+            layout |= {
+                f"electrical_{n}": A.interconnect_location() * s
+                for n, s in FEI.make_interconnect_parts().items()
+            }
             x_face = FM.L_TOTAL / 2 - FM.THREAD_L
             for side, sgn in (("outlet", -1), ("inlet", 1)):
                 place = Pos(sgn * x_face, 0, 0) * Rot(0, sgn * 90, 0)

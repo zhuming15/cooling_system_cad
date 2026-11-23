@@ -43,6 +43,7 @@ for sub in (
     "flowmeter",
     "flowmeter_connector",
     "flowmeter_clamp",
+    "flowmeter_electronic_interconnect",
 ):
     sys.path.insert(0, str(ROOT / sub))
 
@@ -53,6 +54,7 @@ import clamp as C
 import flowmeter as FM
 import flowmeter_clamp as FCL
 import flowmeter_connector as FC
+import flowmeter_electronic_interconnect as FEI
 import valve as V
 import valve_connector as F
 from tools.render import color_of
@@ -62,7 +64,7 @@ STEP_DIR = ROOT / "output" / "step"
 # assembly sub-assemblies: (label, part-name prefixes)
 SUBASSEMBLIES = (
     ("valve_unit", ("valve_body", "valve_bonnet", "valve_knob", "fitting_")),
-    ("flowmeter_unit", ("flowmeter_", "qsf_")),
+    ("flowmeter_unit", ("flowmeter_", "qsf_", "electrical_")),
     ("tubes", ("tube_",)),
     ("station_plate", ("base_",)),
     ("valve_clamp", ("valve_clamp_",)),
@@ -209,11 +211,19 @@ def components(parts: dict[str, Solid]) -> list[tuple[str, str, object, str, str
          "bought-in (standard)", placed),
         ("wall_screw", "M6 wall screw", _to_origin(parts["wall_screw_0"]),
          "bought-in (standard)", placed),
+        (
+            "electrical_msap-04bffc-sr7001",
+            "M12 A-coded 4-contact elbow Amphenol LTW MSAP-04BFFC-SR7001",
+            _fuse(FEI.make_interconnect_parts(), "electrical"),
+            "bought-in",
+            local,
+        ),
     ]  # fmt: skip
 
 
 # component file stem -> assembly part-name pattern, for the BOM quantity
 QTY_PATTERN = {
+    "electrical_msap-04bffc-sr7001": r"electrical_body",
     "valve_rs-283-8289": r"valve_body",
     "valve_fitting_smc_kq2h12-u02a": r"fitting_[AB]",
     "flowmeter_ifm_sv3051": r"flowmeter_pipe",
@@ -265,6 +275,16 @@ def main() -> int:
 
     rows = []
     comps = components(parts)
+    fitted = Compound(
+        children=[
+            _named(copy.copy(p), n, color_of(n))
+            for n, p in parts.items()
+            if n.startswith(("flowmeter_", "qsf_", "electrical_"))
+        ],
+        label="flowmeter_fitted",
+    )
+    export_step(fitted, str(ROOT / "output" / "flowmeter_fitted.step"))
+
     counted = Counter()
     for i, (stem, desc, shape, make, frame) in enumerate(comps, start=1):
         qty = sum(1 for n in parts if re.fullmatch(QTY_PATTERN[stem], n))
@@ -278,7 +298,9 @@ def main() -> int:
 
     # every assembly part must be covered by exactly one component row
     covered = {n for n in parts for pat in QTY_PATTERN.values() if re.fullmatch(pat, n)}
-    multi_body = re.compile(r"(valve_(bonnet|knob)|flowmeter_(housing|m12)|qsf_release_ring_.*)")
+    multi_body = re.compile(
+        r"(valve_(bonnet|knob)|flowmeter_(housing|m12)|qsf_release_ring_.*|electrical_(insert|coupling|gland|seal|contact_\d+))"
+    )
     uncovered = [n for n in parts if n not in covered and not multi_body.fullmatch(n)]
     if uncovered:
         raise RuntimeError(f"assembly parts with no component STEP: {uncovered}")

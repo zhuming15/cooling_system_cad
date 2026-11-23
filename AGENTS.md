@@ -38,7 +38,14 @@ then a straight link tube, then the flow control valve, all on one wall base.
   female push-in fitting. Dimensions come from the Festo catalogue and are
   checked against the RS-website 3D model (fit-critical within 0.003 mm,
   envelope 0.01 mm).
-- `assembly.py`: places every part of the station, runs 67 design checks (about 1 minute), and writes
+- `flowmeter_electronic_interconnect/flowmeter_electronic_interconnect.py`: Amphenol
+  LTW MSAP-04BFFC-SR7001 A-coded M12 elbow, fitted to the SV3051. OEM CAD
+  comparison passes (fit < 0.001 mm, exterior 0.414 mm). User confirmed the
+  exact physical parts mate despite the vendor CAD's Ø8.20 insert / Ø8.15
+  socket discrepancy. The interference check accounts only for that nominal
+  cylindrical skin; displaced inserts must still fail. `electrical_*` parts
+  belong to the flowmeter bench unit and count as one BOM component.
+- `assembly.py`: places every part of the station, runs 71 design checks (about 1 minute), and writes
   `output/assembly.step` and `output/assembly.png`. Each check section is a
   `check_<topic>(parts, r)` function listed in `SECTIONS`.
 - `tools/checks.py`: the reusable check library (Report, interference, tool
@@ -238,7 +245,10 @@ and the README "Tight margins" list must stay current:
 - Valve clamp base tipping under a 500 N pull: × 1.17.
 - Clamp-base M4 torque `MOUNT_TORQUE` 0.2 N·m: 0.15 N·m lets the valve base
   tip, 0.3 N·m overloads the acrylic under the nut.
-- Washer on PETG 12.7 / 15 MPa; nut on acrylic 9.4 / 10 MPa.
+- Flowmeter strap torque `FCL.STRAP_TORQUE` is 0.55 N·m for the elbow's
+  67.12 mm cable lever: ×5.11 margin against ×5 at 50 N. Valve cap stays
+  at 0.5 N·m. At 0.5 the strap pull margin fails; 0.6 overloads PETG.
+- Strap washer on PETG 14.0 / 15 MPa (valve washer 12.7); nut on acrylic 9.4 / 10 MPa.
 
 ## build123d gotchas seen here
 

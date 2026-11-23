@@ -50,6 +50,7 @@ its STEP file.
 | Part | Qty | Model |
 |---|---|---|
 | ifm SV3051 vortex flowmeter, G1/2 male both ends | 1 | `flowmeter/flowmeter.py` |
+| Amphenol LTW MSAP-04BFFC-SR7001, A-coded M12 elbow | 1 | `flowmeter_electronic_interconnect/flowmeter_electronic_interconnect.py` |
 | Festo QSF-1/2-12-B push-in fitting, G1/2 female × 12 mm tube | 2 | `flowmeter_connector/flowmeter_connector.py` |
 | RS PRO 283-8289 needle valve, G1/4 (made by Tognella, FT 1251/2-01-14) | 1 | `valve/valve.py` |
 | SMC KQ2H12-U02A push-in fitting, 12 mm tube × G1/4 male | 2 | `valve_connector/valve_connector.py` |
@@ -75,7 +76,7 @@ its STEP file.
 | ISO 4762 M4 × 16 and M4 × 12 | 2 + 2 | Clamp bases to the plate | 0.2 N·m |
 | ISO 4032 M4 nut | 4 | Captive in the plate | |
 | ISO 4762 M4 × 20 + DIN 125 washer | 4 | Valve cap | 0.5 N·m |
-| ISO 4762 M4 × 30 + DIN 125 washer | 4 | Flowmeter straps | 0.5 N·m |
+| ISO 4762 M4 × 30 + DIN 125 washer | 4 | Flowmeter straps | 0.55 N·m |
 | Heat-set insert M4 × 8.1 (ruthex RX-M4x8.1 or equal), Ø5.6 hole | 8 | In the clamp bases | |
 | M6 socket head screw + wall plug | 8 | Plate to the wall | |
 
@@ -121,6 +122,8 @@ its STEP file.
    - Screw both QSF fittings onto the flowmeter, each with a flat G1/2
      washer. Hold the meter by its 12 mm flats, and tighten to 12 N·m at
      most: the meter body is plastic.
+   - Align and connect the A-coded MSAP electrical elbow from above. The
+     exact parts were dry-fitted successfully by the user; see the CAD note below.
    - Push the 140.3 mm link tube fully home into the flowmeter outlet QSF
      and the valve KQ2, with the parts lying straight. The flow arrow on the
      meter must point at the valve.
@@ -141,7 +144,8 @@ its STEP file.
    - The meter's lower 12 mm flat rests on the locating pad of its clamp
      base. That sets its angle.
 5. Fit the valve cap with 4 × M4 × 20 and washers, and the two straps with
-   M4 × 30 and washers. Tighten evenly to **0.5 N·m**. Re-check after 24 h.
+   M4 × 30 and washers. Tighten the valve cap to **0.5 N·m** and flowmeter
+   straps to **0.55 N·m**. Re-check after 24 h.
 6. Push in the inlet and outlet tubes. Keep at least 100 mm of straight tube
    ahead of the meter, and support the tubes beyond the station.
 
@@ -219,8 +223,11 @@ These pass, but with little room. Re-check them after any change nearby:
 - Valve clamp base against tipping under a 500 N tube pull: × 1.17.
 - Clamp-base screw torque: 0.2 N·m (0.15 lets the valve base tip; 0.3
   overloads the acrylic).
-- Contact pressure: washer on PETG 12.7 MPa (limit 15), nut on acrylic
-  9.4 MPa (limit 10).
+- Contact pressure: flowmeter strap washer on PETG 14.0 MPa (limit 15);
+  valve washer 12.7 MPa; nut on acrylic 9.4 MPa (limit 10).
+- Elbow cable pull: ×5.11 holding margin against the required ×5 at 50 N.
+  Straps need 0.55 N·m: 0.5 fails that margin; 0.6 overloads the PETG washer seat.
+  Friction, torque-to-preload and plastic allowables remain engineering estimates.
 
 ## Open items
 
@@ -257,6 +264,73 @@ within 0.02 mm; the rest of the outline within 0.5 mm.
 
 The comparison images are in each part folder (`cad_check.png`,
 `drawing_check.png`).
+
+### Electrical connector assembly
+
+`flowmeter_electronic_interconnect/` models the Amphenol LTW
+**MSAP-04BFFC-SR7001**, M12 A-coded, four female crimp contacts, right-angle
+plastic housing. It is placed on the SV3051 and counted once in the station
+BOM. Its sources and dimensions are in the
+[dimension register](flowmeter_electronic_interconnect/dimension_register.md).
+The A- and D-coded drawings share the 39.3 mm length, 35.5 mm height,
+Ø18.6 coupling and 16 mm spanner reference dimensions. This model uses the
+A-coded variant's own STEP, including its key and contact geometry.
+
+The complete ribbed CAD envelope is 39.5486 × 19.0 × 36.5 mm. The drawing's
+reference dimensions exclude some grip extremes. Internal wiring space is
+filled, threads are cosmetic, and small housing blends and lettering are
+simplified. The drawing overlay is retained beside the model.
+
+| Verified item | Result against OEM A-coded STEP |
+|---|---|
+| A-coded insert, four socket contacts and seal | Surfaces in both directions and feature edges within 0.001 mm |
+| Connector and gland spanner flats | Surfaces in both directions and feature edges within 0.001 mm |
+| Exterior envelope | Vendor→model 0.292 mm; model→vendor 0.414 mm (limit 0.5 mm) |
+| Female M12 thread | Cosmetic major-diameter bore; documented convention skip |
+| Internal wiring space | Filled envelope; omitted vendor internal faces reported separately |
+
+`cad_compare.py` reports **PASS** (15,000 vendor surface points, 40,327 model
+surface points and 4,843 functional feature-edge samples). No fit-critical
+dimensions require estimated or scaled values. The standalone-stage 52-test suite passed;
+the 16 component/vendor-tool tests passed again after the final gland-edge
+correction. Those results describe the standalone component, before mating.
+The assembled station now passes all **71 design checks** and **63 pytest tests**,
+including negative tests for plug displacement, wrong key phase, insertion
+obstructions, insufficient strap torque and excessive PETG bearing pressure.
+
+**Mated CAD discrepancy:** Amphenol's insert is Ø8.20 mm and ifm's socket is
+Ø8.15 mm. At nominal coaxial placement this creates about 5.00 mm³ of overlap
+(0.025 mm radially). **The user confirmed that these exact physical parts fit
+together on 2026-11-23.** Both vendor geometries are preserved. The all-pairs
+check accounts only for this source-defined cylindrical skin at this one
+mating pair; any overlap outside it still fails the original 0.001 mm³ limit.
+A negative test displaces the insert and proves this does not hide misalignment.
+
+Placement aligns the A-code key at the ifm CAD's −45° phase and locates the
+uncompressed seal tangent on the M12 top face (Z42.25). This puts the plug
+shoulder datum at Z43.75; no seal-compression estimate is imposed. The cable
+outlet points diagonally downstream and toward the operator. No cable routing
+is modeled. The plug joins the flowmeter bench unit; insertion from above is
+checked separately against the surrounding station. Cable pull uses the
+cable-entry centre measured from the placed gland: 67.12 mm radial distance
+from the flow axis, including both Y offset and Z height. At 0.55 N·m strap
+torque, estimated holding torque is 17.16 N·m against 3.36 N·m from the 50 N
+pull (×5.11). Maximum washer pressure is 14.0 MPa against the 15 MPa PETG
+allowable. No clamp geometry or check threshold was changed.
+
+`output/flowmeter_fitted.step` and `output/flowmeter_fitted.png` show the
+flowmeter with its electrical elbow and both QSF fittings. The full station
+export and BOM also include the connector.
+
+Use cable OD 4–7 mm per drawing rev F; the product page's 4–8 mm claim is
+unresolved. No A-variant tightening torque was verified. These limitations
+and the electrical/material ratings are recorded in the dimension register.
+
+```bash
+uv run python tools/export_interconnect.py  # standalone named STEP and two-view PNG
+uv run python tools/cad_compare.py flowmeter_electronic_interconnect/cad_spec.json <OEM-A-STEP>
+uv run python tools/drawing_check.py flowmeter_electronic_interconnect/drawing_spec.json <OEM-A-drawing-PDF>
+```
 
 ## Working with the code
 
