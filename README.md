@@ -280,9 +280,8 @@ uv run python valve_clamp/clamp.py                 # valve clamp sizes
 uv run ruff check .
 ```
 
-To look at the model interactively, start the OCP CAD Viewer (VS Code
-extension, or `uv run python -m ocp_vscode` and open
-http://127.0.0.1:3939/viewer), then:
+To look at the model interactively, start the standalone OCP CAD viewer
+with `uv run python -m ocp_viewer`, open http://127.0.0.1:3939/viewer, then:
 
 ```bash
 uv run python tools/view.py            # whole station
@@ -303,7 +302,7 @@ flowmeter_clamp/       flowmeter clamp base + straps; station plate and its DXFs
 tools/checks.py        reusable check library (interference, access, stacks, loads, printing)
 tools/export_step.py   STEP export and BOM
 tools/render.py        PNG renders
-tools/view.py          send the model to the OCP CAD Viewer
+tools/view.py          send the model to the OCP CAD viewer (ocp_viewer)
 tools/cad_compare.py   compare a part model with the vendor's 3D model
 tools/drawing_check.py overlay a part model on its datasheet drawing
 tools/fetch_rs_cad.py  unpack an RS website 3D model

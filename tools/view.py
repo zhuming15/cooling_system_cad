@@ -1,8 +1,7 @@
-"""Send the model to the OCP CAD Viewer.
+"""Send the model to the standalone OCP CAD viewer (ocp_viewer).
 
-Start the viewer first, either:
-  * VS Code: "OCP CAD Viewer" extension -> open its viewer pane, or
-  * standalone:  uv run python -m ocp_vscode   (then open http://127.0.0.1:3939/viewer)
+Start the viewer first:
+  uv run python -m ocp_viewer   (then open http://127.0.0.1:3939/viewer)
 
 Then:
   uv run python tools/view.py              # full wall-mounted assembly (default)
@@ -18,7 +17,7 @@ import sys
 from pathlib import Path
 
 from build123d import Box, Pos, Rot
-from ocp_vscode import Camera, set_port, show
+from ocp_viewer import Camera, set_port, show
 
 ROOT = Path(__file__).resolve().parents[1]
 for sub in (
@@ -116,8 +115,8 @@ def main() -> None:
         if s.connect_ex(("127.0.0.1", a.port)) != 0:
             sys.exit(
                 f"No OCP viewer on port {a.port}. Start it first:\n"
-                "  uv run python -m ocp_vscode   (opens http://127.0.0.1:3939/viewer)\n"
-                "  or open the OCP CAD Viewer pane in VS Code."
+                f"  uv run python -m ocp_viewer --port {a.port}\n"
+                f"  then open http://127.0.0.1:{a.port}/viewer"
             )
     set_port(a.port)
 

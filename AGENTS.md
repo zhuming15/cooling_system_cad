@@ -55,7 +55,7 @@ then a straight link tube, then the flow control valve, all on one wall base.
   assembly part has no sub-assembly or no component file, so a new part needs
   an entry in its `SUBASSEMBLIES`, `components()` and `QTY_PATTERN`.
 - `tools/render.py` writes the PNG renders. `tools/view.py` sends the model to
-  the OCP CAD Viewer. `tools/dims.py` builds dimension annotations measured
+  the standalone OCP CAD viewer (`ocp_viewer`). `tools/dims.py` builds dimension annotations measured
   from the placed parts.
 - `tools/cad_compare.py` compares a part model with the vendor's 3D model
   (RS/TraceParts mesh, STEP or STL), zone by zone: fit-critical zones must be
@@ -73,7 +73,7 @@ then a straight link tube, then the flow control valve, all on one wall base.
 ## Commands
 
 ```bash
-uv sync                                   # deps (build123d, matplotlib, ocp-vscode, ruff, pytest)
+uv sync                                   # deps (build123d, matplotlib, ocp-viewer, ruff, pytest)
 uv run python assembly.py                 # MUST print "ALL CHECKS PASS" (exit 0)
 uv run pytest                             # MUST pass (~2 min; -m "not slow" for the quick ones)
 uv run python tools/render.py             # output/assembly.png + output/components.png
@@ -90,7 +90,8 @@ uv run ruff check .                       # must be clean
 ```
 
 `tools/view.py` exits with an error if no viewer is listening on port 3939.
-Don't treat that as a code bug; the user has to start the viewer.
+Don't treat that as a code bug; the user has to start the viewer with
+`uv run python -m ocp_viewer` (page: http://127.0.0.1:3939/viewer).
 
 ## Definition of done for any geometry change
 
@@ -246,7 +247,7 @@ and the README "Tight margins" list must stay current:
 - `RegularPolygon(r, 6, major_radius=False)` puts the hex corners on local ±x.
   Add `rotation=30` to put the corners on local ±y.
 - `BoundingBox.add()` returns a new box; it doesn't modify the original.
-- `ocp_vscode.show()` does nothing and raises no error when no viewer is
+- `ocp_viewer.show()` does nothing and raises no error when no viewer is
   running. That's why `tools/view.py` checks the port first.
 
 ## Don't

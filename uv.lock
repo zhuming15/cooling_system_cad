@@ -466,7 +466,6 @@ dependencies = [
     { name = "build123d" },
     { name = "matplotlib" },
     { name = "ocp-viewer" },
-    { name = "ocp-vscode" },
 ]
 
 [package.dev-dependencies]
@@ -481,7 +480,6 @@ requires-dist = [
     { name = "build123d", specifier = ">=0.13.0" },
     { name = "matplotlib", specifier = ">=3.11.2" },
     { name = "ocp-viewer", specifier = ">=1.2.0" },
-    { name = "ocp-vscode", specifier = ">=4.2.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1007,18 +1005,6 @@ wheels = [
 [package.optional-dependencies]
 cli = [
     { name = "questionary" },
-]
-
-[[package]]
-name = "ocp-vscode"
-version = "4.2.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "ocp-viewer-core", extra = ["cli"] },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/59/35/a0b559e27b02dc77fc79f4cbab578ce7dd717d0f65fe6b1400f9b46521b1/ocp_vscode-4.2.0.tar.gz", hash = "sha256:3419f9a64f782342b0e260c32726278f39221e26467a527a3063c2c9f1f8ea87", size = 36390, upload-time = "2026-10-13T16:29:00.705Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d7/d6/1ce0de49581f6cb075d9da8ac8c059e0cee3b952ff01e1c16bd89dd0f033/ocp_vscode-4.2.0-py3-none-any.whl", hash = "sha256:b705b17990cfdce92d3eeca687725239b35e8e7e4cc77d46b6143ff4ece496cc", size = 23270, upload-time = "2026-10-13T16:28:59.551Z" },
 ]
 
 [[package]]
