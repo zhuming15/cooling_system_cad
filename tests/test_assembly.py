@@ -237,3 +237,44 @@ def test_plate_check_rejects_a_second_layer_and_a_stray_pocket(parts):
     stray = parts["base_plate"] - Pos(-20, 12, 0) * Box(5, 4, 5)  # 2 mm deep: not a listed depth
     bad = dict(parts, base_plate=stray)
     assert "station plate: one plate, through-cuts + pockets" in failed_names(A.check_modules, bad)
+
+
+@pytest.mark.slow
+def test_stack_catches_a_short_pitch(parts, monkeypatch):
+    monkeypatch.setattr(A, "STACK_PITCH", 120.0)  # elbow can't be lifted off its socket
+    assert "M12 elbow plugs / unplugs under the set above" in failed_names(A.check_stack, parts)
+    monkeypatch.setattr(A, "STACK_PITCH", 80.0)  # elbow runs into the meter above
+    names = failed_names(A.check_stack, parts)
+    # the plate was cut for 140: the neighbours' dowels and screws miss its holes
+    assert {"stacked sets don't collide", "one station plate carries every set"} <= names
+
+
+def test_stack_catches_a_plate_for_one_set_only(parts):
+    single = A.FCL.make_station_base(A.X_FM)["base_plate"]  # holes for this set only
+    names = failed_names(A.check_stack, dict(parts, base_plate=single))
+    assert "one station plate carries every set" in names
+
+
+def test_stack_access_catches_a_neighbour_in_front_of_the_knob(parts):
+    # a block one pitch below, in front of the knob: its copy in the set above
+    # sits in this set's knob sight line
+    block = Pos(0, 120, -A.STACK_PITCH) * Box(10, 10, 10)
+    names = failed_names(A.check_stack, dict(parts, obstruction=block))
+    assert "operator and tool access with neighbours fitted" in names
+
+
+def test_build_stack_names_and_offsets(parts):
+    stack = A.build_stack(parts)
+    shared = sum(1 for n in parts if A.is_shared(n))
+    assert len(stack) == A.STACK_N * (len(parts) - shared) + shared
+    assert [n for n in stack if n.endswith("base_plate")] == ["base_plate"]  # one plate
+    zs = [A.set_offset(k) for k in range(1, A.STACK_N + 1)]
+    pb = stack["base_plate"].bounding_box()
+    assert pb.min.Z < min(zs) - 40 and pb.max.Z > max(zs) + 40  # spans every set
+    k, name = A.split_set_name(A.set_name(3, "valve_body"))
+    assert (k, name) == (3, "valve_body")
+    dz = (
+        stack["set3_valve_body"].bounding_box().center().Z
+        - parts["valve_body"].bounding_box().center().Z
+    )
+    assert abs(dz - 2 * A.STACK_PITCH) < 1e-6

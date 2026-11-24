@@ -7,8 +7,13 @@
     Station base: one 12 mm acrylic plate (through-cuts + 6 mm pockets). Clamp
     modules screw onto it (3D printed, dowel-located): valve base + cap,
     flowmeter base + 2 straps. M4 into heat-set inserts / captive nuts, 8 x M6
-    wall screws
+    wall screws per set
     (valve_clamp/clamp.py, flowmeter_clamp/flowmeter_clamp.py)
+
+STACK_N identical sets are stacked on the wall, STACK_PITCH apart along Z,
+all on ONE station plate. build() is ONE set (PLATE_SET, the middle one) with
+that whole plate: every check section runs on it, and check_stack() places
+its neighbours (build_stack) to check what stacking adds. The STEP and PNG outputs show the whole stack.
 
 Global frame: wall = plane Y=0 (+Y toward operator), Z up, flow along +X.
 Flow direction: the VALVE has no flow direction (either port can be the
@@ -18,6 +23,7 @@ keeps it under back-pressure (ifm: avoid cavitation) and the valve's
 disturbance stays downstream of the measurement.
 
 Run:  uv run python assembly.py   -> design checks, output/assembly.step, output/assembly.png
+      (the outputs show all STACK_N sets)
 Exit code is non-zero if any design check fails.
 """
 
@@ -97,6 +103,15 @@ ASSEMBLY_ORDER = (
         ("valve_clamp_cap", "fm_clamp_strap", "m4_washer", "m4_cap"),
     ),
 )
+# Stack: STACK_N identical sets one above the other, all on one station plate.
+STACK_N = 3  # user: three sets in total, stacked
+# Set-to-set pitch. Ruled by the M12 elbow: lifted M12_LIFT off its socket (top
+# Z 113.6) it must clear the set above, whose lowest part there is the meter's
+# locating pad (Z -14 in its own set) -> >= 127.6; 140 leaves 12 mm for fingers.
+STACK_PITCH = 140.0
+PLATE_SET = (STACK_N + 1) // 2  # build() is the middle set: neighbours above and below
+M12_LIFT = 40.0  # mm of vertical approach to plug / unplug the M12 elbow
+SERVICE_TRAVEL = 60.0  # mm a set's parts travel along +Y to come off (assembly sweep)
 TUBE_STRAIN_MAX = 0.005  # ESTIMATE: 0.5 % bending strain, well inside PU / PA tube elasticity
 
 # Station layout along X (all derived; the link tube is exactly stop-to-stop)
@@ -169,8 +184,9 @@ def build() -> dict[str, Solid]:
     # straight link tube, exactly stop-to-stop: QSF outlet -> valve fitting A
     parts["tube_link"] = make_link_tube()
 
-    # station base: one cut and pocketed plate; printed clamp modules screw onto it
-    parts |= FCL.make_station_base(X_FM)
+    # station base: ONE plate for the whole stack (this set is PLATE_SET); printed
+    # clamp modules screw onto it
+    parts |= FCL.make_station_base(X_FM, stack_zs())
     parts["valve_clamp_base"] = C.make_base()
     parts["valve_clamp_cap"] = C.make_cap()
     parts["fm_clamp_base"] = FCL.make_base(X_FM, -FLOW_DIR)
@@ -212,6 +228,54 @@ def make_link_tube() -> Solid:
     return t - Pos(LINK_X0 - 1, C.VALVE_Y, 0) * Rot(0, 90, 0) * Cylinder(
         LINK_TUBE_ID / 2, length + 2, align=ALIGN_MIN
     )
+
+
+def _size(s: Solid) -> str:
+    bb = s.bounding_box()
+    return f"{bb.size.X:.0f} x {bb.size.Z:.0f} mm"
+
+
+def set_name(k: int, name: str) -> str:
+    """Part name of `name` in stacked set k (1 = bottom)."""
+    return f"set{k}_{name}"
+
+
+def split_set_name(name: str) -> tuple[int | None, str]:
+    """(set number, part name) of a stacked part; (None, name) for a single set."""
+    head, _, rest = name.partition("_")
+    if head.startswith("set") and head[3:].isdigit() and rest:
+        return int(head[3:]), rest
+    return None, name
+
+
+def set_offset(k: int) -> float:
+    """Z of set k's flow axis (set 1 at Z = 0)."""
+    return (k - 1) * STACK_PITCH
+
+
+def stack_zs() -> list[float]:
+    """Z of every set's flow axis relative to the set build() makes (PLATE_SET)."""
+    return [set_offset(k) - set_offset(PLATE_SET) for k in range(1, STACK_N + 1)]
+
+
+SHARED = ("base_plate",)  # name prefixes of the stack's parts, not one set's
+
+
+def is_shared(name: str) -> bool:
+    return name.startswith(SHARED)
+
+
+def build_stack(parts: dict[str, Solid] | None = None) -> dict[str, Solid]:
+    """STACK_N sets on the one plate: set parts named set<k>_<part>, the plate once."""
+    parts = build() if parts is None else parts
+    stack = {
+        set_name(k, n): Pos(0, 0, set_offset(k)) * s
+        for k in range(1, STACK_N + 1)
+        for n, s in parts.items()
+        if not is_shared(n)
+    }
+    lift = Pos(0, 0, set_offset(PLATE_SET))
+    return stack | {n: lift * s for n, s in parts.items() if is_shared(n)}
 
 
 # --------------------------------------------------------------------------
@@ -572,7 +636,8 @@ def check_modules(parts: dict[str, Solid], r: Report) -> None:
     r.check(
         f"printed parts fit a {C.PRINT_BED:.0f} mm printer bed",
         big <= C.PRINT_BED,
-        f"largest printed part {big:.0f} mm (flowmeter base); the 300 mm plate is cut, not printed",
+        f"largest printed part {big:.0f} mm (flowmeter base); the "
+        f"{_size(parts['base_plate'])} plate is cut, not printed",
     )
     print(
         f"  [INFO] torque: valve cap {C.CAP_TORQUE}, straps {FCL.STRAP_TORQUE}, "
@@ -1100,16 +1165,154 @@ def check_electrical_interconnect(parts: dict[str, Solid], r: Report) -> None:
     )
     moving = [n for n in parts if n.startswith("electrical_")]
     fixed = [n for n in parts if n not in moving and n != "flowmeter_m12"]
-    hits = sweep(parts, moving, fixed, axis=(0, 0, -1), travel=40, step=2)
+    hits = sweep(parts, moving, fixed, axis=(0, 0, -1), travel=M12_LIFT, step=2)
     r.check(
         "M12 plug insertion clear of station",
         not hits,
-        "40 mm vertical approach; mating socket checked separately" if not hits else str(hits),
+        f"{M12_LIFT:.0f} mm vertical approach; mating socket checked separately"
+        if not hits
+        else str(hits),
     )
     r.info(
         "OEM nominal CAD mismatch: insert diameter 8.20 vs socket 8.15 mm; "
         "physical mating confirmed by user; only that nominal cylindrical skin "
         "is accounted for in the all-pairs check."
+    )
+
+
+def access_probes(parts: dict[str, Solid]) -> list[tuple[str, Solid]]:
+    """Operator / tool envelopes of one set: (label, probe solid), for the stack check."""
+    out = []
+    for prefix, d in (("wall_screw", 10.5), ("m4_cap_screw", 8.0), ("m4_mount_screw", 6.5)):
+        for n in [n for n in parts if n.startswith(prefix)]:
+            bb = parts[n].bounding_box()
+            out.append(
+                (f"{n} hex key", y_probe(d, bb.center().X, bb.center().Z, bb.max.Y + 0.1, 150))
+            )
+    kbb = parts["valve_knob"].bounding_box()
+    cap_front = parts["valve_clamp_cap"].bounding_box().max.Y
+    out.append(
+        (
+            "knob finger ring",
+            C._y_cyl(V.KNOB_D + 2 * 18, kbb.max.Y - cap_front - 0.5, 0, cap_front + 0.5, 0),
+        )
+    )
+    out.append(("knob line of sight", y_probe(C.WINDOW_D, 0, 0, kbb.max.Y + 0.1, 400)))
+    for side in ("in", "out"):
+        rb = parts[f"qsf_release_ring_{side}"].bounding_box()
+        out_dir = 1 if rb.center().X > X_FM else -1
+        x_face = rb.max.X if out_dir > 0 else rb.min.X
+        out.append(
+            (
+                f"QSF {side} release finger room",
+                C.box3d((x_face - 20, x_face + 20), (FCL.FM_Y, FCL.FM_Y + 40), (-40, 40)),
+            )
+        )
+    mb = parts["flowmeter_m12"].bounding_box()
+    out.append(
+        (
+            "straight M12 plug envelope",
+            Pos(mb.center().X, mb.center().Y, mb.max.Z + 0.1) * Cylinder(10.0, 55, align=ALIGN_MIN),
+        )
+    )
+    return out
+
+
+def check_stack(parts: dict[str, Solid], r: Report) -> None:
+    """What stacking adds: the set (as built) between copies of itself above and below."""
+    r.start(f"13. Stack: {STACK_N} sets, {STACK_PITCH:.0f} mm apart, one plate")
+    own = {n: s for n, s in parts.items() if not is_shared(n)}
+    above = {f"above_{n}": Pos(0, 0, STACK_PITCH) * s for n, s in own.items()}
+    below = {f"below_{n}": Pos(0, 0, -STACK_PITCH) * s for n, s in own.items()}
+    neighbours = above | below
+    # 1. no part of a set touches a part of the set above (the set below is the
+    #    same pair, shifted)
+    hits = []
+    for a, sa in own.items():
+        for b, sb in above.items():
+            v = overlap(sa, sb)
+            if v > CK.VOLUME_TOL:
+                hits.append(f"{a}/{b} {v:.2f}mm3")
+    r.check(
+        "stacked sets don't collide",
+        not hits,
+        "no part of one set meets the next" if not hits else "; ".join(hits)[:300],
+    )
+    # 2. ONE plate carries every set: it is one body, each neighbour's clamp bases
+    #    sit on it, and its dowels, M4 screws, nuts and wall screws go into holes and
+    #    pockets cut for them (nothing of a neighbour cuts into the plate)
+    plate = parts["base_plate"]
+    off, into = [], []
+    for n, s in neighbours.items():
+        name = n.partition("_")[2]
+        if name in ("valve_clamp_base", "fm_clamp_base") and s.distance_to(plate) > 1e-3:
+            off.append(n)
+        if name.startswith(("dowel_", "m4_mount", "m4_nut", "wall_screw")):
+            v = overlap(s, plate)
+            if v > CK.VOLUME_TOL:
+                into.append(f"{n} {v:.2f}mm3")
+    pz = plate.bounding_box()
+    r.check(
+        "one station plate carries every set",
+        len(plate.solids()) == 1 and not off and not into,
+        f"one {_size(plate)} plate, Z {pz.min.Z:.0f}..{pz.max.Z:.0f}: the {STACK_N} sets' bases "
+        "sit on it, their dowels, M4 and wall screws in its holes"
+        if not off and not into
+        else "; ".join(off + into)[:300],
+    )
+    # 3. the M12 elbow plugs and unplugs vertically, under the set above
+    moving = [n for n in parts if n.startswith("electrical_")]
+    stage = {n: parts[n] for n in moving} | above
+    m12 = sweep(stage, moving, list(above), axis=(0, 0, -1), travel=M12_LIFT, step=2)
+    elbow_top = max(parts[n].bounding_box().max.Z for n in moving) + M12_LIFT
+    ebb = [parts[n].bounding_box() for n in moving]
+    column = C.box3d(  # the elbow's footprint, extended up and down
+        (min(b.min.X for b in ebb), max(b.max.X for b in ebb)),
+        (min(b.min.Y for b in ebb), max(b.max.Y for b in ebb)),
+        (-1e4, 1e4),
+    )
+    room = min((s & column).bounding_box().min.Z for s in above.values() if overlap(s, column) > 0)
+    r.check(
+        "M12 elbow plugs / unplugs under the set above",
+        not m12,
+        f"lifted {M12_LIFT:.0f} mm its top is at Z {elbow_top:.1f}; the set above starts at "
+        f"Z {room:.1f} over it ({room - elbow_top:.1f} mm finger room)"
+        if not m12
+        else str(sorted(m12))[:300],
+    )
+    # 4. every operator / tool envelope of the set stays clear of both neighbours
+    blocked = [
+        f"{label}: {sorted(ray_clear(neighbours, probe))}" for label, probe in access_probes(parts)
+    ]
+    blocked = [b for b in blocked if not b.endswith("[]")]
+    r.check(
+        "operator and tool access with neighbours fitted",
+        not blocked,
+        "hex keys, knob finger ring and sight line, QSF release, M12 plug envelope clear"
+        if not blocked
+        else "; ".join(blocked)[:300],
+    )
+    # 5. any set can be fitted or taken off the plate along +/-Y with its neighbours
+    #    in place (each part's bounding box, run SERVICE_TRAVEL out: conservative)
+    blocked = []
+    for n, s in own.items():
+        if n.startswith("wall_screw"):
+            continue  # driven in place, never travels with the set
+        bb = s.bounding_box()
+        path = C.box3d(
+            (bb.min.X, bb.max.X), (bb.min.Y, bb.max.Y + SERVICE_TRAVEL), (bb.min.Z, bb.max.Z)
+        )
+        blocked += [f"{n}/{h}" for h in ray_clear(neighbours, path)]
+    r.check(
+        "each set fits and comes off the plate with neighbours in place",
+        not blocked,
+        f"every part's box swept {SERVICE_TRAVEL:.0f} mm along +Y clears the sets above and below"
+        if not blocked
+        else "; ".join(blocked)[:300],
+    )
+    r.info(
+        f"stack {pz.size.Z:.0f} mm tall on one plate; each set keeps its own wall screws "
+        "(the per-set wall-screw load check counts the whole plate's weight: conservative)"
     )
 
 
@@ -1130,6 +1333,7 @@ SECTIONS = (
     check_printing,
     check_variation,
     check_loads,
+    check_stack,
 )
 
 
@@ -1139,15 +1343,17 @@ SECTIONS = (
 def main() -> int:
     parts = build()
     print("Wall-mounted flow station: SV3051 flowmeter -> link tube -> 283-8289 valve")
+    print(f"{STACK_N} identical sets: sections 1-12 check one set, section 13 the stack")
     fails = verify(parts)
+    stack = build_stack(parts)
     OUTPUT.mkdir(exist_ok=True)
     out = OUTPUT / "assembly.step"
     from tools.export_step import assembly_compound
     from tools.render import render_assembly
 
-    export_step(assembly_compound(parts), str(out))  # named, coloured sub-assembly tree
+    export_step(assembly_compound(stack), str(out))  # named, coloured tree, set by set
 
-    render_assembly(parts, OUTPUT / "assembly.png")
+    render_assembly(stack, OUTPUT / "assembly.png")
     print(f"\nExported {out.relative_to(ROOT)}, output/assembly.png")
     print("RESULT:", "ALL CHECKS PASS" if not fails else f"{fails} CHECK(S) FAILED")
     return 1 if fails else 0

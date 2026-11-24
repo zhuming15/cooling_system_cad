@@ -4,7 +4,8 @@ Start the viewer first:
   uv run python -m ocp_viewer   (then open http://127.0.0.1:3939/viewer)
 
 Then:
-  uv run python tools/view.py              # full wall-mounted assembly (default)
+  uv run python tools/view.py              # one set on the wall (default)
+  uv run python tools/view.py stack        # all assembly.STACK_N sets, stacked
   uv run python tools/view.py parts        # every component laid out side by side
   uv run python tools/view.py exploded     # assembly pulled apart along the build order
   uv run python tools/view.py valve | connector | base | cap
@@ -45,7 +46,7 @@ def wall(parts):
     bb = None
     for p in parts.values():
         bb = p.bounding_box() if bb is None else bb.add(p.bounding_box())
-    return Pos(bb.center().X, -5, 0) * Box(bb.size.X + 40, 10, 160)
+    return Pos(bb.center().X, -5, bb.center().Z) * Box(bb.size.X + 40, 10, bb.size.Z + 40)
 
 
 def exploded(parts):
@@ -97,6 +98,7 @@ def main() -> None:
         default="assembly",
         choices=[
             "assembly",
+            "stack",
             "parts",
             "exploded",
             "valve",
@@ -122,8 +124,8 @@ def main() -> None:
             )
     set_port(a.port)
 
-    if a.what in ("assembly", "exploded"):
-        parts = split_knob(A.build())
+    if a.what in ("assembly", "exploded", "stack"):
+        parts = split_knob(A.build_stack() if a.what == "stack" else A.build())
         if a.what == "exploded":
             parts = exploded(parts)
         names, objs = list(parts), list(parts.values())

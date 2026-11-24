@@ -32,6 +32,11 @@ Concept
       6 mm deep: hex pockets for the captive M4 nuts from the wall face, M6
       head counterbore slots from the front face. One DXF, one layer per
       feature (CUT, POCKET_WALL_FACE, POCKET_FRONT_FACE).
+    * STACK: STACK_N identical sets one above the other
+      (assembly.STACK_PITCH) on ONE plate: the outline runs from the lowest
+      set to the highest and every set's holes, pockets and wall slots are
+      cut in it (make_station_base(x_center, zs)). Each set keeps its own 8
+      M6 wall screws.
 
 Global frame: as valve_clamp/clamp.py (wall Y = 0, +Y to operator, Z up).
 The flowmeter axis is along X at (Y = FM_Y, Z = 0), centred on X = x_center;
@@ -39,6 +44,7 @@ The flowmeter axis is along X at (Y = FM_Y, Z = 0), centred on X = x_center;
 """
 
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 from build123d import (
@@ -205,69 +211,74 @@ def make_wall_screws(x_center: float, length: float = 40.0) -> list[Solid]:
     return C.make_wall_screws(xs=[x_center + sx * WALL_SCREW_X for sx in (-1, 1)], length=length)
 
 
-# --- Station base plate (one acrylic plate: through-cuts + 6 mm pockets) -------------
-def _outline(x_center: float) -> Sketch:
+# --- Station base plate (ONE acrylic plate for the whole stack) ----------------------
+# `zs` are the Z offsets of the sets the plate carries, relative to the set being
+# built; (0.0,) is a plate for a single set. Every set gets the same holes, pockets
+# and wall slots; the outline runs from the lowest set to the highest.
+def _outline(x_center: float, zs: Sequence[float]) -> Sketch:
     xs = [-C.VALVE_PLATE_L / 2, C.VALVE_PLATE_L / 2, x_center - PLATE_L / 2, x_center + PLATE_L / 2]
     x0, x1 = min(xs), max(xs)
-    return Pos((x0 + x1) / 2, 0) * RectangleRounded(x1 - x0, PLATE_H, C.PLATE_R)
+    z0, z1 = min(zs) - PLATE_H / 2, max(zs) + PLATE_H / 2
+    return Pos((x0 + x1) / 2, (z0 + z1) / 2) * RectangleRounded(x1 - x0, z1 - z0, C.PLATE_R)
 
 
-def _wall_slots(x_center: float, d: float) -> Sketch:
+def _wall_slots(x_center: float, d: float, zs: Sequence[float]) -> Sketch:
     xs = [sx * C.WALL_SCREW_X for sx in (-1, 1)] + [x_center + sx * WALL_SCREW_X for sx in (-1, 1)]
     out = None
-    for x in xs:
-        for sz in (-1, 1):
-            s = Pos(x, sz * WALL_SCREW_Z) * SlotCenterToCenter(C.WALL_SLOT, d, rotation=90)
-            out = s if out is None else out + s
+    for z0 in zs:
+        for x in xs:
+            for sz in (-1, 1):
+                s = Pos(x, z0 + sz * WALL_SCREW_Z) * SlotCenterToCenter(C.WALL_SLOT, d, rotation=90)
+                out = s if out is None else out + s
     return out
 
 
-def all_mount_xz(x_center: float) -> list[tuple[float, float]]:
-    return list(C.MOUNT_XZ) + mount_xz(x_center)
+def all_mount_xz(x_center: float, zs: Sequence[float] = (0.0,)) -> list[tuple[float, float]]:
+    return [(x, z + z0) for z0 in zs for x, z in list(C.MOUNT_XZ) + mount_xz(x_center)]
 
 
-def all_dowel_xz(x_center: float) -> list[tuple[float, float]]:
-    return list(C.DOWEL_XZ) + dowel_xz(x_center)
+def all_dowel_xz(x_center: float, zs: Sequence[float] = (0.0,)) -> list[tuple[float, float]]:
+    return [(x, z + z0) for z0 in zs for x, z in list(C.DOWEL_XZ) + dowel_xz(x_center)]
 
 
-def plate_cut_profile(x_center: float) -> Sketch:
+def plate_cut_profile(x_center: float, zs: Sequence[float] = (0.0,)) -> Sketch:
     """Through-cuts: outline, M6 wall slots, dowel holes (the alignment datum), M4 holes."""
-    p = _outline(x_center) - _wall_slots(x_center, C.WALL_HOLE_D)
-    for x, z in all_dowel_xz(x_center):
+    p = _outline(x_center, zs) - _wall_slots(x_center, C.WALL_HOLE_D, zs)
+    for x, z in all_dowel_xz(x_center, zs):
         p -= Pos(x, z) * Circle(C.DOWEL_HOLE_D / 2)
-    for x, z in all_mount_xz(x_center):
+    for x, z in all_mount_xz(x_center, zs):
         p -= Pos(x, z) * Circle(C.M4_CLR_D / 2)
     return p
 
 
-def nut_pockets(x_center: float) -> Sketch:
+def nut_pockets(x_center: float, zs: Sequence[float] = (0.0,)) -> Sketch:
     """Hex pockets for the captive M4 nuts, NUT_POCKET_DEPTH deep from the wall face."""
     out = None
-    for x, z in all_mount_xz(x_center):
+    for x, z in all_mount_xz(x_center, zs):
         h = Pos(x, z) * RegularPolygon(C.NUT_POCKET_AF / 2, 6, major_radius=False)
         out = h if out is None else out + h
     return out
 
 
-def head_pockets(x_center: float) -> Sketch:
+def head_pockets(x_center: float, zs: Sequence[float] = (0.0,)) -> Sketch:
     """M6 head counterbore slots, WALL_CB_DEPTH deep from the front face."""
-    return _wall_slots(x_center, C.WALL_CB_D)
+    return _wall_slots(x_center, C.WALL_CB_D, zs)
 
 
-def plate_layers(x_center: float) -> dict[str, Sketch]:
+def plate_layers(x_center: float, zs: Sequence[float] = (0.0,)) -> dict[str, Sketch]:
     """DXF layers: through-cut and the two pocket features (6 mm each)."""
     return {
-        "CUT": plate_cut_profile(x_center),
-        "POCKET_WALL_FACE": nut_pockets(x_center),
-        "POCKET_FRONT_FACE": head_pockets(x_center),
+        "CUT": plate_cut_profile(x_center, zs),
+        "POCKET_WALL_FACE": nut_pockets(x_center, zs),
+        "POCKET_FRONT_FACE": head_pockets(x_center, zs),
     }
 
 
-def make_station_base(x_center: float) -> dict[str, Solid]:
-    """Station base: one plate, through-cuts plus 6 mm pockets from each face."""
-    plate = C.plate(plate_cut_profile(x_center), 0.0, PLATE_T)
-    plate -= C.plate(nut_pockets(x_center), 0.0, C.NUT_POCKET_DEPTH)
-    plate -= C.plate(head_pockets(x_center), C.WALL_SEAT_Y, C.WALL_CB_DEPTH)
+def make_station_base(x_center: float, zs: Sequence[float] = (0.0,)) -> dict[str, Solid]:
+    """Station base: one plate for every set at `zs`, through-cuts plus 6 mm pockets."""
+    plate = C.plate(plate_cut_profile(x_center, zs), 0.0, PLATE_T)
+    plate -= C.plate(nut_pockets(x_center, zs), 0.0, C.NUT_POCKET_DEPTH)
+    plate -= C.plate(head_pockets(x_center, zs), C.WALL_SEAT_Y, C.WALL_CB_DEPTH)
     return {"base_plate": plate}
 
 
@@ -276,8 +287,8 @@ if __name__ == "__main__":
     import assembly as A
 
     xc, inlet = A.X_FM, -A.FLOW_DIR
-    C.export_layers(plate_layers(xc), here / "base_plate.dxf")
-    parts = make_station_base(xc) | {
+    C.export_layers(plate_layers(xc, A.stack_zs()), here / "base_plate.dxf")
+    parts = make_station_base(xc, A.stack_zs()) | {
         "sv3051_clamp_base": make_base(xc, inlet),
         "sv3051_clamp_strap": make_cap_unclamped(STRAP_X),
     }
@@ -294,6 +305,7 @@ if __name__ == "__main__":
     )
     print(
         "Exported flowmeter_clamp/base_plate.dxf: layer CUT (through), POCKET_WALL_FACE and "
-        f"POCKET_FRONT_FACE ({C.NUT_POCKET_DEPTH:.0f} / {C.WALL_CB_DEPTH:.0f} mm deep)"
+        f"POCKET_FRONT_FACE ({C.NUT_POCKET_DEPTH:.0f} / {C.WALL_CB_DEPTH:.0f} mm deep); "
+        "one plate for all stacked sets"
     )
     print("STEP: uv run python tools/export_step.py -> output/step/")

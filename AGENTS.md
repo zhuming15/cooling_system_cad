@@ -7,6 +7,8 @@ Guidance for AI coding agents working in this repo. For humans, start with
 
 Parametric build123d CAD for a wall-mounted water flow station: flowmeter,
 then a straight link tube, then the flow control valve, all on one wall base.
+Three identical sets are stacked on the wall (`assembly.STACK_N`,
+`STACK_PITCH`), all on ONE station plate.
 `assembly.py` is the acceptance test for the whole station.
 
 - `valve/valve.py`: RS PRO 283-8289 G1/4 needle valve, which is the Tognella
@@ -25,7 +27,9 @@ then a straight link tube, then the flow control valve, all on one wall base.
   `make_station_base()`: the station plate (`base_plate`). It is ONE 12 mm
   acrylic plate with through-cuts plus two 6 mm pocket features: M4 nut hex
   pockets from the wall face and M6 head counterbore slots from the front.
-  `base_plate.dxf` has one layer per feature.
+  One plate carries all `STACK_N` sets (outline from the lowest set to the
+  highest, every set's holes repeated). `base_plate.dxf` has one layer per
+  feature.
 - **The clamps are modules on a plain station base.** Each printed clamp
   base is located on the plate by 2 dowel pins and fixed by 2 × M4 from the
   front into captive nuts; its clamp head screws into heat-set inserts in it.
@@ -47,9 +51,16 @@ then a straight link tube, then the flow control valve, all on one wall base.
   socket discrepancy. The interference check accounts only for that nominal
   cylindrical skin; displaced inserts must still fail. `electrical_*` parts
   belong to the flowmeter bench unit and count as one BOM component.
-- `assembly.py`: places every part of the station, runs 71 design checks (about 1 minute), and writes
-  `output/assembly.step` and `output/assembly.png`. Each check section is a
-  `check_<topic>(parts, r)` function listed in `SECTIONS`.
+- `assembly.py`: places every part of ONE set (`build()`), runs 76 design
+  checks on it (about 1 minute), and writes `output/assembly.step` and
+  `output/assembly.png` for the whole stack (`build_stack()`: names
+  `set<k>_<part>`, set 1 at the bottom). Each check section is a
+  `check_<topic>(parts, r)` function listed in `SECTIONS`; `check_stack`
+  places copies of the set above and below to check what stacking adds
+  (collisions, the one plate carrying every set, M12 unplugging room, tool
+  and operator access, service with neighbours fitted). `build()` is the
+  middle set (`PLATE_SET`) with the whole plate (`make_station_base(x, stack_zs())`);
+  `build_stack()` keeps the plate once, unprefixed (`SHARED`).
 - `tools/checks.py`: the reusable check library (Report, interference, tool
   access, assembly sweep, printability, wall thickness, laser profile, worst
   case / RSS / Monte Carlo stacks, preload, pressures, tipping, wall loads).
@@ -200,7 +211,9 @@ Don't treat that as a code bug; the user has to start the viewer with
   `base_plate`, `valve_clamp_base`, `valve_clamp_cap`, `fm_clamp_base`,
   `fm_clamp_strap_0`, `m4_cap_screw_*`, `m4_mount_screw_*`, `m4_nut_*`,
   `m4_insert_*`, `dowel_*`, `wall_screw_*`. Renaming a part means updating
-  all three, plus `tools/dims.py` and `tools/export_step.py`.
+  all three, plus `tools/dims.py` and `tools/export_step.py`. Stacked names
+  carry a `set<k>_` prefix; `assembly.split_set_name()` strips it, and
+  `color_of()` and the STEP exporter use it.
 
 ## Data provenance (important)
 
@@ -244,6 +257,7 @@ Some checks pass with little room. A change that touches these needs care,
 and the README "Tight margins" list must stay current:
 
 - Worst-case link-tube strain: 0.45 % against `TUBE_STRAIN_MAX` 0.5 %.
+- `STACK_PITCH` 140: 12.4 mm above the lifted M12 elbow (minimum 127.6).
 - Valve clamp base tipping under a 500 N pull: × 1.17.
 - Clamp-base M4 torque `MOUNT_TORQUE` 0.2 N·m: 0.15 N·m lets the valve base
   tip, 0.3 N·m overloads the acrylic under the nut.

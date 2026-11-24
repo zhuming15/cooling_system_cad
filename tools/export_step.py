@@ -3,12 +3,14 @@
     uv run python tools/export_step.py     -> output/step/
 
 Writes:
-  00_flow_station_assembly.step  the whole station, as placed in assembly.py,
-                                 as a named, coloured assembly tree
-                                 (sub-assemblies: valve unit, flowmeter unit,
-                                 tubes, station plate, clamps, hardware)
+  00_flow_station_assembly.step  the whole stack of assembly.STACK_N sets, as
+                                 placed in assembly.py, as a named, coloured
+                                 assembly tree: set_<k> -> (valve unit,
+                                 flowmeter unit, tubes, station plate, clamps,
+                                 hardware)
   NN_<component>.step            one file per distinct component
-  bom.csv                        file, component, quantity, source/make, frame
+  bom.csv                        file, component, quantity for the whole
+                                 stack, source/make, frame
 
 Component frames:
   - bought-in parts (valve, fittings, flowmeter) use their part-local frame,
@@ -80,19 +82,39 @@ def _named(shape, label: str, color: str | None = None):
     return shape
 
 
-def assembly_compound(parts: dict[str, Solid]) -> Compound:
-    """The station as a STEP assembly tree: sub-assemblies of named, coloured parts."""
+def _set_tree(parts: dict[str, Solid], label: str) -> Compound:
+    """One set: sub-assemblies of named, coloured parts (names may carry a set prefix)."""
     groups = []
     used: set[str] = set()
-    for label, prefixes in SUBASSEMBLIES:
-        names = [n for n in parts if n.startswith(prefixes) and n not in used]
+    for sub, prefixes in SUBASSEMBLIES:
+        names = [n for n in parts if A.split_set_name(n)[1].startswith(prefixes) and n not in used]
         used |= set(names)
         kids = [_named(copy.copy(parts[n]), n, color_of(n)) for n in names]  # don't reparent
-        groups.append(Compound(children=kids, label=label))
+        if kids:  # a stacked set has no plate: the stack's one plate sits above the sets
+            groups.append(Compound(children=kids, label=sub))
     missing = set(parts) - used
     if missing:
         raise ValueError(f"parts not in any STEP sub-assembly: {sorted(missing)}")
-    return Compound(children=groups, label="flow_station_assembly")
+    return Compound(children=groups, label=label)
+
+
+def assembly_compound(parts: dict[str, Solid]) -> Compound:
+    """STEP assembly tree. A stack (assembly.build_stack) gets the shared station
+    plate once, then one set_<k> node per set."""
+    sets: dict[int | None, dict[str, Solid]] = {}
+    for n, s in parts.items():
+        sets.setdefault(A.split_set_name(n)[0], {})[n] = s
+    if list(sets) == [None]:
+        return _set_tree(parts, "flow_station_assembly")
+    shared = sets.pop(None, {})
+    stray = sorted(n for n in shared if not A.is_shared(n))
+    if stray:
+        raise ValueError(f"unstacked parts in a stack that aren't shared: {stray[:5]}")
+    base = [_set_tree(shared, "station_base")] if shared else []  # the one plate
+    return Compound(
+        children=base + [_set_tree(sets[k], f"set_{k}") for k in sorted(sets)],
+        label="flow_station_assembly",
+    )
 
 
 def _to_origin(s: Solid) -> Solid:
@@ -259,11 +281,15 @@ def main() -> int:
     for old in STEP_DIR.glob("*.step"):
         old.unlink()
     parts = A.build()
+    stack = A.build_stack(parts)
 
     asm_path = STEP_DIR / "00_flow_station_assembly.step"
-    asm = assembly_compound(parts)
+    asm = assembly_compound(stack)
     export_step(asm, str(asm_path))
-    print(f"{asm_path.relative_to(ROOT)}: {_check(asm_path, asm)}, {len(parts)} parts")
+    print(
+        f"{asm_path.relative_to(ROOT)}: {_check(asm_path, asm)}, {len(stack)} parts "
+        f"in {A.STACK_N} sets"
+    )
 
     rows = []
     comps = components(parts)
@@ -279,7 +305,7 @@ def main() -> int:
 
     counted = Counter()
     for i, (stem, desc, shape, make, frame) in enumerate(comps, start=1):
-        qty = sum(1 for n in parts if re.fullmatch(QTY_PATTERN[stem], n))
+        qty = sum(1 for n in stack if re.fullmatch(QTY_PATTERN[stem], A.split_set_name(n)[1]))
         counted[stem] = qty
         path = STEP_DIR / f"{i:02d}_{stem}.step"
         if not shape.label:

@@ -59,6 +59,9 @@ LIGHT = np.array([0.35, 0.8, 0.5]) / np.linalg.norm([0.35, 0.8, 0.5])
 
 
 def color_of(name: str) -> str:
+    head, _, rest = name.partition("_")  # stacked parts: set<k>_<part>
+    if head.startswith("set") and head[3:].isdigit() and rest:
+        name = rest
     return next((c for k, c in COLORS.items() if name.startswith(k)), "#888888")
 
 
@@ -66,13 +69,14 @@ def split_knob(parts: dict[str, Solid]) -> dict[str, Solid]:
     """Show the knob's blue scale cap in its own colour."""
     import valve as V
 
-    if "valve_knob" not in parts:
-        return parts
-    knob = parts["valve_knob"]
-    top = knob.bounding_box().max.Y
-    zone = Pos(knob.center().X, top - V.CAP_H / 2, knob.center().Z) * Box(40, V.CAP_H + 0.01, 40)
     out = dict(parts)
-    out["valve_knob"], out["valve_scale_cap"] = knob - zone, knob & zone
+    for n in [n for n in parts if n.endswith("valve_knob")]:  # one per stacked set
+        knob = parts[n]
+        top = knob.bounding_box().max.Y
+        zone = Pos(knob.center().X, top - V.CAP_H / 2, knob.center().Z) * Box(
+            40, V.CAP_H + 0.01, 40
+        )
+        out[n], out[n.replace("valve_knob", "valve_scale_cap")] = knob - zone, knob & zone
     return out
 
 
@@ -169,8 +173,8 @@ def render_components(path: Path) -> None:
             None,
         ),
         (
-            "Station base - one 12 mm acrylic plate, through-cuts + 6 mm pockets",
-            [(v, COLORS["base_"]) for v in FCL.make_station_base(A.X_FM).values()],
+            f"Station base - one 12 mm acrylic plate for all {A.STACK_N} sets, through-cuts + 6 mm pockets",
+            [(v, COLORS["base_"]) for v in FCL.make_station_base(A.X_FM, A.stack_zs()).values()],
             (25, 60),
             (25, 230),
             None,
@@ -251,9 +255,10 @@ def main() -> None:
     import assembly as A
 
     OUTPUT.mkdir(exist_ok=True)
-    render_assembly(A.build(), OUTPUT / "assembly.png")
+    parts = A.build()
+    render_assembly(A.build_stack(parts), OUTPUT / "assembly.png")
     render_components(OUTPUT / "components.png")
-    render_fitted_flowmeter(A.build(), OUTPUT / "flowmeter_fitted.png")
+    render_fitted_flowmeter(parts, OUTPUT / "flowmeter_fitted.png")
     print(f"Saved {OUTPUT / 'assembly.png'} and {OUTPUT / 'components.png'}")
 
 

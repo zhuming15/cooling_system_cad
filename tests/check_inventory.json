@@ -282,5 +282,25 @@
   "STATION-071": {
     "section": "check_loads",
     "name": "wall screws: load per M6 under a 500 N tube pull"
+  },
+  "STATION-072": {
+    "section": "check_stack",
+    "name": "stacked sets don't collide"
+  },
+  "STATION-073": {
+    "section": "check_stack",
+    "name": "one station plate carries every set"
+  },
+  "STATION-074": {
+    "section": "check_stack",
+    "name": "M12 elbow plugs / unplugs under the set above"
+  },
+  "STATION-075": {
+    "section": "check_stack",
+    "name": "operator and tool access with neighbours fitted"
+  },
+  "STATION-076": {
+    "section": "check_stack",
+    "name": "each set fits and comes off the plate with neighbours in place"
   }
 }

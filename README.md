@@ -1,4 +1,4 @@
-# Flow station: flowmeter and flow control valve on one wall plate
+# Flow station: flowmeter and flow control valve, three sets stacked on the wall
 
 Parametric CAD (Python, [build123d](https://github.com/gumyr/build123d)) for a
 small wall-mounted water station. Water passes through an ifm SV3051 vortex
@@ -10,7 +10,9 @@ inlet tube → ifm SV3051 flowmeter → 140.3 mm link tube → RS 283-8289 needl
 ```
 
 Both components sit in 3D-printed PETG clamps on one 12 mm acrylic plate,
-which screws to the wall.
+which screws to the wall. Three identical sets are stacked one above the
+other, 140 mm apart, all on that one plate (`assembly.STACK_N`,
+`assembly.STACK_PITCH`).
 
 [![Flow station assembly](output/assembly.png)](https://3dviewer.net/#model=https://raw.githubusercontent.com/zhuming15/cooling_system_cad/main/output/step/00_flow_station_assembly.step)
 
@@ -35,7 +37,7 @@ Contents: [Ratings](#ratings) · [Bill of materials](#bill-of-materials) ·
 | Water temperature | 0–40 °C (limited by the SMC KQ2 fittings) |
 | Flow measured | 0.5–10 l/min (SV3051) |
 | Tube | 12 mm OD × 8 mm ID, PU or PA |
-| Station size | 300 × 92 × 12 mm plate; 78 mm deep from the wall to the valve knob |
+| Station size | One 300 × 372 × 12 mm plate for the stack of 3 (140 mm pitch); 78 mm deep from the wall to the valve knob |
 
 The valve itself is rated 210 bar and the meter 16 bar. Don't use those
 numbers for the station.
@@ -43,7 +45,9 @@ numbers for the station.
 ## Bill of materials
 
 `output/step/bom.csv` is generated from the model and lists every part with
-its STEP file.
+its STEP file, with quantities for the whole stack of three sets. The
+quantities in the tables below are **per set**; order three times as many,
+except the station plate: there is one for the whole stack.
 
 ### Bought-in parts
 
@@ -61,7 +65,7 @@ its STEP file.
 
 | Part | Qty | Process | File |
 |---|---|---|---|
-| Station plate | 1 | CNC-routed 12 mm cast acrylic: through-cuts plus two 6 mm pocket features | `flowmeter_clamp/base_plate.dxf` |
+| Station plate | 1 for the stack | CNC-routed 12 mm cast acrylic, 300 × 372 mm: through-cuts plus two 6 mm pocket features | `flowmeter_clamp/base_plate.dxf` |
 | Valve clamp base | 1 | FDM print, PETG | `output/step/06_valve_clamp_base.step` |
 | Valve clamp cap | 1 | FDM print, PETG | `output/step/07_valve_clamp_cap.step` |
 | Flowmeter clamp base (both pedestals and the locating pad, one piece) | 1 | FDM print, PETG | `output/step/08_flowmeter_clamp_base.step` |
@@ -83,8 +87,10 @@ its STEP file.
 
 ### Station plate
 
-- One plate of 12 mm cast acrylic. The DXF is in mm, one layer per feature.
-  Regenerate it with `uv run python flowmeter_clamp/flowmeter_clamp.py`.
+- One plate of 12 mm cast acrylic, 300 × 372 mm, carries all three sets:
+  each set's holes, pockets and wall slots are repeated at 140 mm. The DXF is in mm,
+  one layer per feature. Regenerate it with
+  `uv run python flowmeter_clamp/flowmeter_clamp.py`.
   - `CUT`: through-cuts. Outline, M6 wall slots, Ø4.1 dowel holes, Ø4.5 M4
     holes.
   - `POCKET_WALL_FACE`: 7.2 AF hex pockets for the M4 nuts, 6 mm deep from
@@ -95,8 +101,9 @@ its STEP file.
   a laser leaves Ø4–4.5 holes visibly tapered through 12 mm of acrylic,
   which would spoil the dowel slip fit. Drill or ream the dowel holes. Keep
   each pocket floor flat, because the M4 nut bears on it.
-- Cut all the dowel holes in one job. The two clamps are only coaxial if
-  their dowel holes come from the same cut.
+- Cut all the dowel holes in one job. The two clamps of a set are only
+  coaxial if their dowel holes come from the same cut, and the sets stay
+  140 mm apart.
 - The M4 nuts go into the hex pockets from the wall side before the plate
   goes on the wall; the wall then traps them.
 - The design assumes ±0.1 mm on hole positions. Cut the calibration coupon
@@ -139,8 +146,10 @@ its STEP file.
    The link tube is cut exactly stop-to-stop, so it can't be fitted once
    both parts are clamped. That's why the meter, tube and valve go in as one
    unit.
-2. Screw the plate to the wall with 8 × M6. The vertical slots give ±3 mm of
-   adjustment and move both clamps together.
+2. Screw the one plate to the wall with 24 × M6 (8 per set). The vertical
+   slots give ±3 mm of adjustment and move every clamp together. The three
+   sets sit 140 mm apart on it; any set's clamps, bench unit and hardware
+   can be fitted, serviced or removed with the other sets in place.
 3. Push each clamp base onto its dowel holes and fix it with 2 × M4 through
    the channel floor at **0.2 N·m**. This torque has a narrow window: at
    0.15 N·m the valve base can tip under a hard tube pull; at 0.3 N·m the
@@ -236,6 +245,8 @@ These pass, but with little room. Re-check them after any change nearby:
 - Elbow cable pull: ×5.11 holding margin against the required ×5 at 50 N.
   Straps need 0.55 N·m: 0.5 fails that margin; 0.6 overloads the PETG washer seat.
   Friction, torque-to-preload and plastic allowables remain engineering estimates.
+- Stack pitch 140 mm: lifted 40 mm to unplug, the M12 elbow is 12.4 mm
+  below the set above (127.6 mm is the minimum pitch).
 
 ## Open items
 
@@ -251,6 +262,9 @@ These pass, but with little room. Re-check them after any change nearby:
   150e-6/K, PETG heat limit 70 °C, 100 N per wall plug. The clamp gaps,
   pressures and strain checks depend on them; the coupons and tests above
   confirm them.
+- **M12 cable route in the stack.** The cable leaving each elbow is not
+  modelled. It points toward the operator and downstream. Route it so it
+  doesn't hang over the valve knob of the set below.
 - **Valve port chamfer.** The KQ2 gasket seats on the chamfer of the female
   thread (SMC catalogue). Check that the valve ports have one.
 - **Load cases** (500 N tube pull, 50 N cable pull, plasterboard wall) are
@@ -302,7 +316,7 @@ surface points and 4,843 functional feature-edge samples). No fit-critical
 dimensions require estimated or scaled values. The standalone-stage 52-test suite passed;
 the 16 component/vendor-tool tests passed again after the final gland-edge
 correction. Those results describe the standalone component, before mating.
-The assembled station is verified by **71 design checks** and **95 pytest tests**,
+The assembled station is verified by **76 design checks** and **100 pytest tests**,
 including negative tests for plug displacement, wrong key phase, insertion
 obstructions, insufficient strap torque and excessive PETG bearing pressure.
 
