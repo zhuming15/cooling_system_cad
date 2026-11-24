@@ -588,6 +588,7 @@ def wall_measurement(solid: Solid, per_face: int = 150) -> WallMeasurement:
     from OCP.BRepClass3d import BRepClass3d_SolidClassifier
     from OCP.gp import gp_Dir, gp_Lin, gp_Pnt
     from OCP.IntCurvesFace import IntCurvesFace_ShapeIntersector
+    from OCP.Standard import Standard_ConstructionError
     from OCP.TopAbs import TopAbs_IN
 
     if per_face <= 0 or not solid.solids():
@@ -618,7 +619,10 @@ def wall_measurement(solid: Solid, per_face: int = 150) -> WallMeasurement:
         face_hits = 0
         for c in pts:
             rays += 1
-            nv = f.normal_at(Vector(*c))
+            try:
+                nv = f.normal_at(Vector(*c))
+            except Standard_ConstructionError:
+                continue  # degenerate point (cone apex, fillet-corner pole): no inward direction
             d = -np.array((nv.X, nv.Y, nv.Z))
             probe = BRepClass3d_SolidClassifier(solid.wrapped, gp_Pnt(*(c + 0.01 * d)), 1e-7)
             if probe.State() != TopAbs_IN:

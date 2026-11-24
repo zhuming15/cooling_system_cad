@@ -296,6 +296,17 @@ def test_wall_measurement_reports_coverage_and_rejects_missing_samples():
         CK.wall_measurement(Box(1, 1, 1), per_face=0)
 
 
+def test_wall_measurement_skips_degenerate_points_but_still_finds_thin_walls():
+    from build123d import Cone
+
+    # a cone's apex has no surface normal (as a fillet-corner pole doesn't): the sample
+    # there is skipped, every face is still measured
+    solid = CK.wall_measurement(Cone(5, 0, 10))
+    assert solid.measured_faces == solid.faces and solid.minimum > 1.2
+    shell = Cone(5, 0, 10) - Pos(0, 0, -0.5) * Cone(5, 0, 10)  # apex kept, ~0.45 mm wall
+    assert CK.wall_measurement(shell).minimum < 1.2
+
+
 def test_query_bounds_reused_and_invalidated_after_geometry_changes(monkeypatch):
     from build123d import Shape
 

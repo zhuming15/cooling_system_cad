@@ -169,11 +169,11 @@
   },
   "STATION-043": {
     "section": "check_flowmeter_clamp",
-    "name": "meter flat rests on locating pad (meter square)"
+    "name": "pad clear of the meter flat (bores alone set its height)"
   },
   "STATION-044": {
     "section": "check_flowmeter_clamp",
-    "name": "meter touches only the pad (no clamp load on plastic)"
+    "name": "meter clear of the clamp plastic away from the pad"
   },
   "STATION-045": {
     "section": "check_flowmeter_holding",
@@ -302,5 +302,13 @@
   "STATION-076": {
     "section": "check_stack",
     "name": "each set fits and comes off the plate with neighbours in place"
+  },
+  "STATION-077": {
+    "section": "check_flowmeter_clamp",
+    "name": "pad stops the meter's roll both ways"
+  },
+  "STATION-078": {
+    "section": "check_stack",
+    "name": "finger room over the lifted M12 elbow"
   }
 }

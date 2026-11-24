@@ -106,11 +106,14 @@ ASSEMBLY_ORDER = (
 # Stack: STACK_N identical sets one above the other, all on one station plate.
 STACK_N = 3  # user: three sets in total, stacked
 # Set-to-set pitch. Ruled by the M12 elbow: lifted M12_LIFT off its socket (top
-# Z 113.6) it must clear the set above, whose lowest part there is the meter's
-# locating pad (Z -14 in its own set) -> >= 127.6; 140 leaves 12 mm for fingers.
+# Z 113.6) it must clear the set above, whose lowest part there is the flowmeter
+# clamp base's full-length second bar and pad (Z -23 in its own set) -> >= 136.6;
+# 140 leaves 3.4 mm (user's choice: full-rectangle bar and pad, 2026-11-24).
 STACK_PITCH = 140.0
 PLATE_SET = (STACK_N + 1) // 2  # build() is the middle set: neighbours above and below
 M12_LIFT = 40.0  # mm of vertical approach to plug / unplug the M12 elbow
+M12_ROOM_MIN = 3.0  # mm over the lifted elbow to the set above. Guards the 3.4 mm the
+# user accepted (it was 12.4 with the notched base); not an ergonomic limit
 SERVICE_TRAVEL = 60.0  # mm a set's parts travel along +Y to come off (assembly sweep)
 TUBE_STRAIN_MAX = 0.005  # ESTIMATE: 0.5 % bending strain, well inside PU / PA tube elasticity
 
@@ -1004,16 +1007,39 @@ def check_flowmeter_clamp(parts: dict[str, Solid], r: Report) -> None:
         if not phase_hits
         else f"clash: {sorted(set(phase_hits))}",
     )
+    # Roll-stop pad, read from the placed base: the part of it under the meter's flat
     pad = FCL.pad_box(X_FM, -FLOW_DIR)
-    on_pad = parts["flowmeter_pipe"].distance_to(pad)
-    into_pad = overlap(parts["flowmeter_pipe"], pad)
-    r.check(
-        "meter flat rests on locating pad (meter square)",
-        on_pad < 1e-3 and into_pad < 1e-3,
-        f"downward 12 AF flat to pad {on_pad:.4f} mm, overlap {into_pad:.3f} mm3 "
-        "-> rotation locked both ways",
-    )
     pb = pad.bounding_box()
+    pad_zone = C.box3d((pb.min.X, pb.max.X), (pb.min.Y, pb.max.Y), (pb.min.Z, pb.max.Z + 2))
+    base_pad = parts["fm_clamp_base"] & pad_zone
+    pipe = parts["flowmeter_pipe"]
+    to_pad = pipe.distance_to(base_pad)
+    to_base = pipe.distance_to(parts["fm_clamp_base"])
+    stack = 2 * C.PRINT_TOL  # pad top and bore bottom, each a printed feature position
+    r.check(
+        "pad clear of the meter flat (bores alone set its height)",
+        to_pad > stack and abs(to_base - to_pad) < 1e-6,
+        f"flat to pad {to_pad:.3f} mm > pad-vs-bore print error {stack:.1f} mm, and the pad "
+        "is the base's nearest point: tightening the straps can't prop the meter on it",
+    )
+    axis = pipe.bounding_box().center()
+
+    def rolled(deg: float) -> Solid:
+        return Pos(0, axis.Y, axis.Z) * Rot(deg, 0, 0) * Pos(0, -axis.Y, -axis.Z) * pipe
+
+    caught = [overlap(rolled(s * FCL.ROLL_STOP_MAX), base_pad) > 0 for s in (1, -1)]
+    free = next(
+        (d / 10 for d in range(1, 10 * int(FCL.ROLL_STOP_MAX) + 1)
+         if overlap(rolled(d / 10), base_pad) > 0 or overlap(rolled(-d / 10), base_pad) > 0),
+        None,
+    )
+    r.check(
+        "pad stops the meter's roll both ways",
+        all(caught),
+        f"flat lands on the pad at {free:.1f} deg (limit {FCL.ROLL_STOP_MAX:.0f} deg, both ways)"
+        if all(caught) and free is not None
+        else f"meter still free at +/-{FCL.ROLL_STOP_MAX:.0f} deg (caught {caught})",
+    )
     base_wo_pad = parts["fm_clamp_base"] - C.box3d(
         (pb.min.X - 0.1, pb.max.X + 0.1),
         (pb.min.Y - 0.1, pb.max.Y + 0.1),
@@ -1026,7 +1052,7 @@ def check_flowmeter_clamp(parts: dict[str, Solid], r: Report) -> None:
         + [parts[a].distance_to(base_wo_pad) for a in fm_names]
     )
     r.check(
-        "meter touches only the pad (no clamp load on plastic)",
+        "meter clear of the clamp plastic away from the pad",
         gap >= 1.0,
         f"min gap elsewhere {gap:.1f} mm; screw load goes through the brass fittings",
     )
@@ -1066,7 +1092,7 @@ def check_flowmeter_holding(parts: dict[str, Solid], r: Report) -> None:
         t_hold >= 5 * t_cable,
         f"cable {t_cable:.2f} N.m ({lever * 1000:.2f} mm arm) vs friction "
         f"{t_hold:.2f} N.m (x{t_hold / t_cable:.2f}), "
-        "plus the spanner-flat pad as a positive stop",
+        f"plus the roll-stop pad under the spanner flat (catches it within {FCL.ROLL_STOP_MAX:.0f} deg)",
     )
     p_contact = f_strap / (FCL.BODY_D * FCL.STRAP_W)
     r.check(
@@ -1310,6 +1336,12 @@ def check_stack(parts: dict[str, Solid], r: Report) -> None:
         f"Z {room:.1f} over it ({room - elbow_top:.1f} mm finger room)"
         if not m12
         else str(sorted(m12))[:300],
+    )
+    r.check(
+        "finger room over the lifted M12 elbow",
+        room - elbow_top >= M12_ROOM_MIN,
+        f"{room - elbow_top:.1f} mm between the lifted elbow and the set above "
+        f"(minimum {M12_ROOM_MIN:.1f}): tight, grip the connector from the side",
     )
     # 4. every operator / tool envelope of the set stays clear of both neighbours
     blocked = [
