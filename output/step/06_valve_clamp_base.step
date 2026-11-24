@@ -1,7 +1,7 @@
 ISO-10303-21;
 HEADER;
 FILE_DESCRIPTION(('Open CASCADE Model'),'2;1');
-FILE_NAME('valve_clamp_base','2026-11-23T21:32:45',('Author'),(
+FILE_NAME('valve_clamp_base','2026-11-24T14:06:34',('Author'),(
     'Open CASCADE'),'Open CASCADE STEP processor 8.0','build123d',
   'Unknown');
 FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }'));
@@ -2265,7 +2265,7 @@ SHAPE_REPRESENTATION_RELATIONSHIP() );
 #1910 = ITEM_DEFINED_TRANSFORMATION('','',#11,#15);
 #1911 = PRODUCT_DEFINITION_SHAPE('Placement','Placement of an item',
   #1912);
-#1912 = NEXT_ASSEMBLY_USAGE_OCCURRENCE('109','valve_clamp_base','',#5,
+#1912 = NEXT_ASSEMBLY_USAGE_OCCURRENCE('252','valve_clamp_base','',#5,
   #27,$);
 #1913 = PRODUCT_RELATED_PRODUCT_CATEGORY('part',$,(#29));
 ENDSEC;
