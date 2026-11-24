@@ -267,6 +267,7 @@ def test_build_stack_names_and_offsets(parts):
     stack = A.build_stack(parts)
     shared = sum(1 for n in parts if A.is_shared(n))
     assert len(stack) == A.STACK_N * (len(parts) - shared) + shared
+    assert sum(1 for n in stack if n.startswith("wall_screw")) == 6  # the plate's, not per set
     assert [n for n in stack if n.endswith("base_plate")] == ["base_plate"]  # one plate
     zs = [A.set_offset(k) for k in range(1, A.STACK_N + 1)]
     pb = stack["base_plate"].bounding_box()
@@ -278,3 +279,12 @@ def test_build_stack_names_and_offsets(parts):
         - parts["valve_body"].bounding_box().center().Z
     )
     assert abs(dz - 2 * A.STACK_PITCH) < 1e-6
+
+
+def test_wall_screw_load_counts_the_whole_stack(parts):
+    # four of the plate's six M6 can't carry the three sets (126 N per screw > 100)
+    bad = {n: s for n, s in parts.items() if n not in ("wall_screw_1", "wall_screw_4")}
+    assert "wall screws: load per M6 under a 500 N tube pull" in failed_names(A.check_loads, bad)
+    assert "wall screws: load per M6 under a 500 N tube pull" not in failed_names(
+        A.check_loads, parts
+    )

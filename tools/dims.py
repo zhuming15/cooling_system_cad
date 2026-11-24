@@ -42,7 +42,7 @@ GROUPS = {
     "fm_clamp_base": ("fm_clamp_base", "Flowmeter clamp base (PETG, printed)"),
     "fm_clamp_strap_0": ("fm_strap", "Flowmeter strap (x2, PETG, printed)"),
     "m4_cap_screw_0": ("m4_screw", "M4x20 ISO 4762 (cap)"),
-    "wall_screw_0": ("wall_screw", "M6 wall screw (x8 per set)"),
+    "wall_screw_0": ("wall_screw", "M6 wall screw (x6, whole stack)"),
     "tube_link": ("tube_link", "Tube 12x8, link (cut length)"),
     "tube_in": ("tube_in", "Tube 12x8, inlet straight run"),
 }

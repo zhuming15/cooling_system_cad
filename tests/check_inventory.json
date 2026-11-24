@@ -37,7 +37,7 @@
   },
   "STATION-010": {
     "section": "check_wall_mounting",
-    "name": "8 wall screws: straight hex-key access"
+    "name": "wall screws: straight hex-key access"
   },
   "STATION-011": {
     "section": "check_wall_mounting",

@@ -6,8 +6,8 @@
     2 x SMC KQ2H12-U02A push-in, Uni 1/4 male           (valve_connector/...)
     Station base: one 12 mm acrylic plate (through-cuts + 6 mm pockets). Clamp
     modules screw onto it (3D printed, dowel-located): valve base + cap,
-    flowmeter base + 2 straps. M4 into heat-set inserts / captive nuts, 8 x M6
-    wall screws per set
+    flowmeter base + 2 straps. M4 into heat-set inserts / captive nuts; the plate
+    has 6 x M6 wall screws for the whole stack
     (valve_clamp/clamp.py, flowmeter_clamp/flowmeter_clamp.py)
 
 STACK_N identical sets are stacked on the wall, STACK_PITCH apart along Z,
@@ -198,7 +198,7 @@ def build() -> dict[str, Solid]:
     for kind, solids in hw.items():
         for i, s in enumerate(solids):
             parts[f"m4_{kind}_{i}" if kind != "dowel" else f"dowel_{i}"] = s
-    for i, s in enumerate(C.make_wall_screws() + FCL.make_wall_screws(X_FM)):
+    for i, s in enumerate(FCL.make_wall_screws(X_FM, stack_zs())):  # the plate's, not the set's
         parts[f"wall_screw_{i}"] = s
     return parts
 
@@ -258,7 +258,7 @@ def stack_zs() -> list[float]:
     return [set_offset(k) - set_offset(PLATE_SET) for k in range(1, STACK_N + 1)]
 
 
-SHARED = ("base_plate",)  # name prefixes of the stack's parts, not one set's
+SHARED = ("base_plate", "wall_screw_")  # name prefixes of the stack's parts, not one set's
 
 
 def is_shared(name: str) -> bool:
@@ -397,9 +397,9 @@ def check_wall_mounting(parts: dict[str, Solid], r: Report) -> None:
         probe = y_probe(10.5, bb.center().X, bb.center().Z, bb.max.Y + 0.1, 150)
         blocked += ray_clear(parts, probe, {n})
     r.check(
-        f"{len(screws)} wall screws: straight hex-key access",
+        "wall screws: straight hex-key access",
         not blocked,
-        "clear" if not blocked else f"blocked by {sorted(set(blocked))}",
+        f"all {len(screws)} clear" if not blocked else f"blocked by {sorted(set(blocked))}",
     )
     blocked = []
     screws = [n for n in parts if n.startswith("m4_cap_screw")]
@@ -778,9 +778,13 @@ def check_loads(parts: dict[str, Solid], r: Report) -> None:
             return "PMMA"
         return "PPS"  # flowmeter, knob, release rings, tubes (light plastics)
 
-    grams = sum(p.volume * DENSITY[mat(k)] for k, p in parts.items() if not k.startswith("wall_"))
-    mass = grams / 1000  # kg
-    mass += 3.14159 / 4 * 8**2 * (LINK_X1 - LINK_X0) * 1e-3 / 1000  # water in the link tube
+    # the plate's wall screws carry the WHOLE stack: STACK_N sets plus the plate
+    def grams(keep):
+        return sum(p.volume * DENSITY[mat(k)] for k, p in parts.items() if keep(k))
+
+    water = 3.14159 / 4 * 8**2 * (LINK_X1 - LINK_X0) * 1e-3  # g in one link tube
+    per_set = grams(lambda k: not is_shared(k)) + water
+    mass = (STACK_N * per_set + grams(lambda k: k == "base_plate")) / 1000  # kg
     screws = [n for n in parts if n.startswith("wall_screw")]
     xs = [parts[n].bounding_box().center().X for n in screws]
     weight = mass * 9.81
@@ -790,7 +794,8 @@ def check_loads(parts: dict[str, Solid], r: Report) -> None:
     r.check(
         "wall screws: load per M6 under a 500 N tube pull",
         per <= WALL_PLUG_MAX,
-        f"station {mass:.2f} kg (solid-print estimate); {per:.0f} N per screw "
+        f"stack of {STACK_N} {mass:.2f} kg (solid-print estimate) on {len(screws)} x M6; "
+        f"{per:.0f} N per screw "
         f"(tension {tension:.0f}, shear {shear:.0f}) <= {WALL_PLUG_MAX:.0f} N plasterboard plug",
     )
 
@@ -1256,7 +1261,7 @@ def check_stack(parts: dict[str, Solid], r: Report) -> None:
         "one station plate carries every set",
         len(plate.solids()) == 1 and not off and not into,
         f"one {_size(plate)} plate, Z {pz.min.Z:.0f}..{pz.max.Z:.0f}: the {STACK_N} sets' bases "
-        "sit on it, their dowels, M4 and wall screws in its holes"
+        "sit on it, their dowels and M4 in its holes"
         if not off and not into
         else "; ".join(off + into)[:300],
     )
@@ -1311,8 +1316,8 @@ def check_stack(parts: dict[str, Solid], r: Report) -> None:
         else "; ".join(blocked)[:300],
     )
     r.info(
-        f"stack {pz.size.Z:.0f} mm tall on one plate; each set keeps its own wall screws "
-        "(the per-set wall-screw load check counts the whole plate's weight: conservative)"
+        f"stack {pz.size.Z:.0f} mm tall on one plate, held by "
+        f"{sum(1 for n in parts if n.startswith('wall_screw'))} x M6 for the whole stack"
     )
 
 

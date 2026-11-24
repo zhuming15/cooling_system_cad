@@ -100,7 +100,7 @@ def _set_tree(parts: dict[str, Solid], label: str) -> Compound:
 
 def assembly_compound(parts: dict[str, Solid]) -> Compound:
     """STEP assembly tree. A stack (assembly.build_stack) gets the shared station
-    plate once, then one set_<k> node per set."""
+    plate and its wall screws once, then one set_<k> node per set."""
     sets: dict[int | None, dict[str, Solid]] = {}
     for n, s in parts.items():
         sets.setdefault(A.split_set_name(n)[0], {})[n] = s
@@ -110,7 +110,7 @@ def assembly_compound(parts: dict[str, Solid]) -> Compound:
     stray = sorted(n for n in shared if not A.is_shared(n))
     if stray:
         raise ValueError(f"unstacked parts in a stack that aren't shared: {stray[:5]}")
-    base = [_set_tree(shared, "station_base")] if shared else []  # the one plate
+    base = [_set_tree(shared, "station_base")] if shared else []  # plate + wall screws
     return Compound(
         children=base + [_set_tree(sets[k], f"set_{k}") for k in sorted(sets)],
         label="flow_station_assembly",

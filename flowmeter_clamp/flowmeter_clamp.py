@@ -35,8 +35,8 @@ Concept
     * STACK: STACK_N identical sets one above the other
       (assembly.STACK_PITCH) on ONE plate: the outline runs from the lowest
       set to the highest and every set's holes, pockets and wall slots are
-      cut in it (make_station_base(x_center, zs)). Each set keeps its own 8
-      M6 wall screws.
+      cut in it (make_station_base(x_center, zs)). The plate has its own 6 M6
+      wall screws (wall_screw_xz), not a set of them per stacked set.
 
 Global frame: as valve_clamp/clamp.py (wall Y = 0, +Y to operator, Z up).
 The flowmeter axis is along X at (Y = FM_Y, Z = 0), centred on X = x_center;
@@ -207,8 +207,18 @@ def make_hw(x_center: float) -> dict[str, list[Solid]]:
     )
 
 
-def make_wall_screws(x_center: float, length: float = 40.0) -> list[Solid]:
-    return C.make_wall_screws(xs=[x_center + sx * WALL_SCREW_X for sx in (-1, 1)], length=length)
+def wall_screw_xz(x_center: float, zs: Sequence[float] = (0.0,)) -> list[tuple[float, float]]:
+    """M6 wall screws of the ONE plate (not per set): 3 columns (the valve's outer
+    column, the meter's outer column and midway) x 2 rows (below the lowest set,
+    above the highest), all at slot positions proven clear in a set. Six carry the
+    whole stack (assembly check "wall screws: load per M6")."""
+    x0, x1 = -C.WALL_SCREW_X, x_center + WALL_SCREW_X
+    rows = (min(zs) - WALL_SCREW_Z, max(zs) + WALL_SCREW_Z)
+    return [(x, z) for z in rows for x in (x0, (x0 + x1) / 2, x1)]
+
+
+def make_wall_screws(x_center: float, zs: Sequence[float] = (0.0,), length: float = 40.0):
+    return C.make_wall_screws(wall_screw_xz(x_center, zs), length=length)
 
 
 # --- Station base plate (ONE acrylic plate for the whole stack) ----------------------
@@ -223,13 +233,10 @@ def _outline(x_center: float, zs: Sequence[float]) -> Sketch:
 
 
 def _wall_slots(x_center: float, d: float, zs: Sequence[float]) -> Sketch:
-    xs = [sx * C.WALL_SCREW_X for sx in (-1, 1)] + [x_center + sx * WALL_SCREW_X for sx in (-1, 1)]
     out = None
-    for z0 in zs:
-        for x in xs:
-            for sz in (-1, 1):
-                s = Pos(x, z0 + sz * WALL_SCREW_Z) * SlotCenterToCenter(C.WALL_SLOT, d, rotation=90)
-                out = s if out is None else out + s
+    for x, z in wall_screw_xz(x_center, zs):
+        s = Pos(x, z) * SlotCenterToCenter(C.WALL_SLOT, d, rotation=90)
+        out = s if out is None else out + s
     return out
 
 

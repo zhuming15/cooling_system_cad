@@ -265,6 +265,8 @@ and the README "Tight margins" list must stay current:
   67.12 mm cable lever: ×5.11 margin against ×5 at 50 N. Valve cap stays
   at 0.5 N·m. At 0.5 the strap pull margin fails; 0.6 overloads PETG.
 - Strap washer on PETG 14.0 / 15 MPa (valve washer 12.7); nut on acrylic 9.4 / 10 MPa.
+- Wall screws: 6 × M6 for the whole stack (`FCL.wall_screw_xz`), 88 / 100 N per
+  screw; they are `SHARED` (the plate's), not per set.
 
 ## build123d gotchas seen here
 

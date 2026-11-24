@@ -305,17 +305,13 @@ def make_hw() -> dict[str, list[Solid]]:
     )
 
 
-def make_wall_screws(xs=(-WALL_SCREW_X, WALL_SCREW_X), length: float = 40.0) -> list[Solid]:
+def make_wall_screws(xz: list[tuple[float, float]], length: float = 40.0) -> list[Solid]:
     """M6 SHCS into wall plugs, at slot centre, head on the counterbore floor."""
-    out = []
-    for x in xs:
-        for sz in (-1, 1):
-            z = sz * WALL_SCREW_Z
-            out.append(
-                _y_cyl(WALL_HEAD[0], WALL_HEAD[1], x, WALL_SEAT_Y, z)
-                + _y_cyl(6.0, -length, x, WALL_SEAT_Y, z)
-            )
-    return out
+    return [
+        _y_cyl(WALL_HEAD[0], WALL_HEAD[1], x, WALL_SEAT_Y, z)
+        + _y_cyl(6.0, -length, x, WALL_SEAT_Y, z)
+        for x, z in xz
+    ]
 
 
 def export_layers(layers: dict[str, Sketch], path: Path) -> None:

@@ -47,7 +47,7 @@ numbers for the station.
 `output/step/bom.csv` is generated from the model and lists every part with
 its STEP file, with quantities for the whole stack of three sets. The
 quantities in the tables below are **per set**; order three times as many,
-except the station plate: there is one for the whole stack.
+except the station plate and its 6 M6 wall screws: those are for the whole stack.
 
 ### Bought-in parts
 
@@ -81,7 +81,7 @@ except the station plate: there is one for the whole stack.
 | ISO 4762 M4 × 20 + DIN 125 washer | 4 | Valve cap | 0.5 N·m |
 | ISO 4762 M4 × 30 + DIN 125 washer | 4 | Flowmeter straps | 0.55 N·m |
 | Heat-set insert M4 × 8.1 (ruthex RX-M4x8.1 or equal), Ø5.6 hole | 8 | In the clamp bases | |
-| M6 socket head screw + wall plug | 8 | Plate to the wall | |
+| M6 socket head screw + wall plug | 6 for the stack | Plate to the wall (not per set) | |
 
 ## Manufacturing
 
@@ -146,8 +146,9 @@ except the station plate: there is one for the whole stack.
    The link tube is cut exactly stop-to-stop, so it can't be fitted once
    both parts are clamped. That's why the meter, tube and valve go in as one
    unit.
-2. Screw the one plate to the wall with 24 × M6 (8 per set). The vertical
-   slots give ±3 mm of adjustment and move every clamp together. The three
+2. Screw the one plate to the wall with 6 × M6: three along the bottom edge,
+   three along the top, outside the sets. The vertical slots give ±3 mm of
+   adjustment and move every clamp together. The three
    sets sit 140 mm apart on it; any set's clamps, bench unit and hardware
    can be fitted, serviced or removed with the other sets in place.
 3. Push each clamp base onto its dowel holes and fix it with 2 × M4 through
@@ -247,6 +248,9 @@ These pass, but with little room. Re-check them after any change nearby:
   Friction, torque-to-preload and plastic allowables remain engineering estimates.
 - Stack pitch 140 mm: lifted 40 mm to unplug, the M12 elbow is 12.4 mm
   below the set above (127.6 mm is the minimum pitch).
+- Wall screws: 6 × M6 carry the whole stack, 88 N per screw against a 100 N
+  plasterboard-plug limit under a 500 N tube pull. Four would be 126 N; into
+  masonry or a stud the limit is much higher.
 
 ## Open items
 
@@ -316,7 +320,7 @@ surface points and 4,843 functional feature-edge samples). No fit-critical
 dimensions require estimated or scaled values. The standalone-stage 52-test suite passed;
 the 16 component/vendor-tool tests passed again after the final gland-edge
 correction. Those results describe the standalone component, before mating.
-The assembled station is verified by **76 design checks** and **100 pytest tests**,
+The assembled station is verified by **76 design checks** and **101 pytest tests**,
 including negative tests for plug displacement, wrong key phase, insertion
 obstructions, insufficient strap torque and excessive PETG bearing pressure.
 
