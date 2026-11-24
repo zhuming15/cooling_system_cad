@@ -9,7 +9,7 @@ front, flow runs left to right:
 inlet tube → ifm SV3051 flowmeter → 140.3 mm link tube → RS 283-8289 needle valve → outlet tube
 ```
 
-Both components sit in 3D-printed PETG clamps on a laser-cut acrylic plate,
+Both components sit in 3D-printed PETG clamps on one 12 mm acrylic plate,
 which screws to the wall.
 
 [![Flow station assembly](output/assembly.png)](https://3dviewer.net/#model=https://raw.githubusercontent.com/zhuming15/cooling_system_cad/main/output/step/00_flow_station_assembly.step)
@@ -35,7 +35,7 @@ Contents: [Ratings](#ratings) · [Bill of materials](#bill-of-materials) ·
 | Water temperature | 0–40 °C (limited by the SMC KQ2 fittings) |
 | Flow measured | 0.5–10 l/min (SV3051) |
 | Tube | 12 mm OD × 8 mm ID, PU or PA |
-| Station size | 300 × 92 mm plate; 78 mm deep from the wall to the valve knob |
+| Station size | 300 × 92 × 12 mm plate; 78 mm deep from the wall to the valve knob |
 
 The valve itself is rated 210 bar and the meter 16 bar. Don't use those
 numbers for the station.
@@ -61,12 +61,11 @@ its STEP file.
 
 | Part | Qty | Process | File |
 |---|---|---|---|
-| Station plate, wall layer | 1 | Laser cut, 6 mm cast acrylic | `flowmeter_clamp/base_back.dxf` |
-| Station plate, front layer | 1 | Laser cut, 6 mm cast acrylic | `flowmeter_clamp/base_front.dxf` |
-| Valve clamp base | 1 | FDM print, PETG | `output/step/07_valve_clamp_base.step` |
-| Valve clamp cap | 1 | FDM print, PETG | `output/step/08_valve_clamp_cap.step` |
-| Flowmeter clamp base (both pedestals and the locating pad, one piece) | 1 | FDM print, PETG | `output/step/09_flowmeter_clamp_base.step` |
-| Flowmeter strap | 2 | FDM print, PETG | `output/step/10_flowmeter_clamp_strap.step` |
+| Station plate | 1 | CNC-routed 12 mm cast acrylic: through-cuts plus two 6 mm pocket features | `flowmeter_clamp/base_plate.dxf` |
+| Valve clamp base | 1 | FDM print, PETG | `output/step/06_valve_clamp_base.step` |
+| Valve clamp cap | 1 | FDM print, PETG | `output/step/07_valve_clamp_cap.step` |
+| Flowmeter clamp base (both pedestals and the locating pad, one piece) | 1 | FDM print, PETG | `output/step/08_flowmeter_clamp_base.step` |
+| Flowmeter strap | 2 | FDM print, PETG | `output/step/09_flowmeter_clamp_strap.step` |
 
 ### Hardware
 
@@ -82,15 +81,24 @@ its STEP file.
 
 ## Manufacturing
 
-### Laser-cut plate
+### Station plate
 
-- Two layers of 6 mm cast acrylic. The DXFs are in mm, outlines on layer
-  `CUT`. Regenerate them with `uv run python flowmeter_clamp/flowmeter_clamp.py`.
-- Cut all the dowel holes in the front layer in one job. The two clamps are
-  only coaxial if their dowel holes come from the same cut.
-- Solvent-weld the two layers together. The M4 nuts go into the hex pockets
-  from the wall side before the plate goes on the wall; the wall then traps
-  them.
+- One plate of 12 mm cast acrylic. The DXF is in mm, one layer per feature.
+  Regenerate it with `uv run python flowmeter_clamp/flowmeter_clamp.py`.
+  - `CUT`: through-cuts. Outline, M6 wall slots, Ø4.1 dowel holes, Ø4.5 M4
+    holes.
+  - `POCKET_WALL_FACE`: 7.2 AF hex pockets for the M4 nuts, 6 mm deep from
+    the wall face.
+  - `POCKET_FRONT_FACE`: Ø11.5 counterbore slots for the M6 heads, 6 mm deep
+    from the front face. The heads end flush with the front face.
+- Make the whole plate on a CNC router: the pockets are stepped holes, and
+  a laser leaves Ø4–4.5 holes visibly tapered through 12 mm of acrylic,
+  which would spoil the dowel slip fit. Drill or ream the dowel holes. Keep
+  each pocket floor flat, because the M4 nut bears on it.
+- Cut all the dowel holes in one job. The two clamps are only coaxial if
+  their dowel holes come from the same cut.
+- The M4 nuts go into the hex pockets from the wall side before the plate
+  goes on the wall; the wall then traps them.
 - The design assumes ±0.1 mm on hole positions. Cut the calibration coupon
   first (test 2 below).
 
@@ -157,7 +165,7 @@ tests need the real parts, in this order:
 | # | Test | How | Pass when |
 |---|---|---|---|
 | 1 | Measure the bought-in parts | Calipers on the valve body (18 × 18, chamfers, port chamfer), the QSF round body (Ø20.8 × 15.3), the KQ2 hex, and the meter's end faces | Within 0.1 mm of the model; otherwise update the part file and re-run the checks |
-| 2 | Laser coupon | Cut a strip with Ø4.1 dowel holes, Ø4.5 holes and a 7.2 AF hex at the plate spacing; measure the sheet | Dowel slides in with no play you can feel; nut drops in and doesn't turn; sheet 5.4–6.6 mm |
+| 2 | Plate coupon | Cut a 12 mm strip with Ø4.1 dowel holes, Ø4.5 holes, a 7.2 AF hex pocket 6 mm deep and an Ø11.5 counterbore 6 mm deep at the plate spacing; measure the sheet | Dowel slides in with no play you can feel; nut drops in, doesn't turn and sits flat on the pocket floor; M6 head ends flush; sheet 10.8–13.2 mm |
 | 3 | Print coupon | Print a 20 mm slice of each clamp (channel, bore, dowel hole, insert hole) | Valve body and QSF body slide in with slight drag; dowel presses in with a hand vise; insert sets square |
 | 4 | Insert pull-out | M4 into a set insert in the coupon, pull | Holds about 1.9 kN (3 × the 625 N screw preload) |
 | 5 | Dry fit | Assemble without tightening | Every step goes in by hand; the bench unit drops into both bases without forcing the tube |
@@ -183,7 +191,7 @@ tests need the real parts, in this order:
 - **Meter position.** Pipe horizontal, housing and M12 connector on top:
   ifm's recommended position (manual Fig. 1). The plate hangs on the wall
   with the pipe parallel to it.
-- **Modular clamps.** The plate has holes only. Each clamp base is located
+- **Modular clamps.** The plate has only holes and two kinds of 6 mm pocket. Each clamp base is located
   by 2 steel dowels and held by 2 M4 into captive nuts. Its cap or straps
   screw into heat-set inserts in the base. The base screws sit under the
   channel floor, so they are reachable until the component goes in.
@@ -205,8 +213,8 @@ tests need the real parts, in this order:
     flats. The printed straps are not meant to take the thread torque.
 - **No strain on the link tube.** The tube must be straight, with no side
   offset and no axial load:
-  - Both clamp bases locate on dowel holes cut in one pass in the same plate
-    layer, and both flowmeter pedestals are one printed part. At worst-case
+  - Both clamp bases locate on dowel holes cut in one pass in the same
+    plate, and both flowmeter pedestals are one printed part. At worst-case
     tolerances (print ±0.2, laser ±0.1), the side offset is 1.24 mm. That
     bends the 100 mm free tube by 0.45 %, under the 0.5 % limit.
   - Valve and meter sit on their cradle floors with the same 0.15 mm
@@ -294,7 +302,7 @@ surface points and 4,843 functional feature-edge samples). No fit-critical
 dimensions require estimated or scaled values. The standalone-stage 52-test suite passed;
 the 16 component/vendor-tool tests passed again after the final gland-edge
 correction. Those results describe the standalone component, before mating.
-The assembled station is verified by **71 design checks** and **93 pytest tests**,
+The assembled station is verified by **71 design checks** and **95 pytest tests**,
 including negative tests for plug displacement, wrong key phase, insertion
 obstructions, insufficient strap torque and excessive PETG bearing pressure.
 
@@ -349,7 +357,7 @@ uv run python assembly.py           # build the station, run the design checks (
 uv run pytest                       # tests (-m "not slow" for the quick ones)
 uv run python tools/export_step.py  # output/step/: one STEP per part, assembly STEP, bom.csv
 uv run python tools/render.py       # output/assembly.png, output/components.png
-uv run python flowmeter_clamp/flowmeter_clamp.py   # plate DXFs + flowmeter clamp sizes
+uv run python flowmeter_clamp/flowmeter_clamp.py   # plate DXF + flowmeter clamp sizes
 uv run python valve_clamp/clamp.py                 # valve clamp sizes
 uv run ruff check .
 ```
@@ -372,7 +380,7 @@ valve_connector/       SMC KQ2 fitting model
 valve_clamp/           valve clamp base + cap; shared constants (tolerances, hardware)
 flowmeter/             ifm SV3051 model
 flowmeter_connector/   Festo QSF fitting model
-flowmeter_clamp/       flowmeter clamp base + straps; station plate and its DXFs
+flowmeter_clamp/       flowmeter clamp base + straps; station plate and its DXF
 tools/checks.py        reusable check library (interference, access, stacks, loads, printing)
 tools/export_step.py   STEP export and BOM
 tools/render.py        PNG renders
@@ -517,7 +525,7 @@ The complete suite and release workflow below remain required.
   the thread is. Clamp on round features and take angles from features on
   the part body.
 - The link tube must stay straight and unstrained: both clamp bases dowel
-  into the same plate layer, the valve and meter pocket clearances stay
+  into the same plate, the valve and meter pocket clearances stay
   equal, and the tube length comes from the two tube stops, never a typed
   number.
 - Threads are modelled without helices: female threads at the major

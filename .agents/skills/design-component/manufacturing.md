@@ -48,7 +48,8 @@ Design rules:
 
 | Item | Value | Source / constant |
 |---|---|---|
-| Sheet thickness | 6 mm (cast: ±10 % across a sheet) | `clamp.SHEET_T`; tolerance ESTIMATE, measure the sheet |
+| Sheet thickness | 12 mm station plate (cast: ±10 % across a sheet) | `clamp.PLATE_T`; tolerance ESTIMATE, measure the sheet |
+| Pockets (stepped holes) | flat-floored, 6 mm deep, from either face; CNC router or depth-controlled engraving | `clamp.NUT_POCKET_DEPTH`, `clamp.WALL_CB_DEPTH`; checked by `checks.is_pocketed_profile` |
 | Cut tolerance (hole position and size) | ±0.1 mm | ESTIMATE, `clamp.CUT_TOL` |
 | Kerf | ~0.15 mm | ESTIMATE; compensate in the cutter software, not the DXF |
 | Kerf taper | holes slightly conical | ESTIMATE; slip fits (dowels) need a coupon |

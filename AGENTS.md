@@ -22,8 +22,10 @@ then a straight link tube, then the flow control valve, all on one wall base.
 - `flowmeter_clamp/flowmeter_clamp.py`: the flowmeter clamp module (one
   printed base with both pedestals, the bar and the locating pad; two straps
   that grip the round Ø20.8 QSF bodies, never the hexes) and
-  `make_station_base()`: the laser-cut station plate (wall layer + front
-  layer, holes only).
+  `make_station_base()`: the station plate (`base_plate`). It is ONE 12 mm
+  acrylic plate with through-cuts plus two 6 mm pocket features: M4 nut hex
+  pockets from the wall face and M6 head counterbore slots from the front.
+  `base_plate.dxf` has one layer per feature.
 - **The clamps are modules on a plain station base.** Each printed clamp
   base is located on the plate by 2 dowel pins and fixed by 2 × M4 from the
   front into captive nuts; its clamp head screws into heat-set inserts in it.
@@ -153,7 +155,7 @@ Don't treat that as a code bug; the user has to start the viewer with
   clash-free.
 - **Link-tube alignment is a hard requirement** from the user: no offset, no
   bend, no axial strain. Locate every clamp base by dowels in the one
-  station-plate front layer (`base_front`), keep both flowmeter pedestals in
+  station plate (`base_plate`), keep both flowmeter pedestals in
   one printed base, and
   keep the valve and flowmeter pocket clearances equal so that
   `clamp.VALVE_Y == flowmeter_clamp.FM_Y`. Derive the tube length from the two
@@ -188,14 +190,14 @@ Don't treat that as a code bug; the user has to start the viewer with
   put it in a step, or the check fails. The link tube goes in with the bench
   unit because it is cut stop-to-stop.
 - **Plastic parts.** Clamp blocks are printed (PETG), the station plate is
-  laser-cut acrylic. Keep contact pressures under `PRINT_P_ALLOW` /
+  one cut and pocketed acrylic plate. Keep contact pressures under `PRINT_P_ALLOW` /
   `ACRYLIC_P_ALLOW` and torques low. Tolerances, allowables and friction are
   estimates; say so if you change them. Screws go into heat-set inserts
   (printed parts) or captive nuts (plate), never into tapped plastic.
 - **Part names in `assembly.build()`** are used by the checks, by the colour
   lookup in `tools/render.py`, and by the exploded view in `tools/view.py`.
   Examples: `valve_knob`, `fitting_A`, `qsf_body_out`, `tube_link`,
-  `base_front`, `valve_clamp_base`, `valve_clamp_cap`, `fm_clamp_base`,
+  `base_plate`, `valve_clamp_base`, `valve_clamp_cap`, `fm_clamp_base`,
   `fm_clamp_strap_0`, `m4_cap_screw_*`, `m4_mount_screw_*`, `m4_nut_*`,
   `m4_insert_*`, `dowel_*`, `wall_screw_*`. Renaming a part means updating
   all three, plus `tools/dims.py` and `tools/export_step.py`.

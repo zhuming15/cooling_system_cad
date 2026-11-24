@@ -1,4 +1,4 @@
-"""Flowmeter saddle clamp (3D printed) + the hole-only station base plate (laser-cut).
+"""Flowmeter saddle clamp (3D printed) + the one-piece station base plate.
 
 Concept
     * HEX PHASE IS NOT CONTROLLABLE. Each QSF fitting is torqued onto the
@@ -17,7 +17,8 @@ Concept
       (dia 20.95), a lower bar joining them (so both bores print coaxial), and
       the pad. Located on the station plate by 2 dowel pins in the bar and fixed
       by 1 x M4 per pedestal, from the front through the bottom of the half-bore
-      into a captive nut: fit it BEFORE the meter, which then covers the heads.
+      into a captive nut in the plate: fit it BEFORE the meter, which then
+      covers the heads.
     * STRAPS (printed) - two clamp heads with upper half-bores, 2 x M4 + DIN 125
       washers each (on the strap face: a counterbore would leave 1.25 mm walls
       in a 12 mm strap) into heat-set inserts in the pedestals. Split-gap preload:
@@ -25,10 +26,12 @@ Concept
     * Straps are 12 mm wide on a 15.3 mm round section: +/-1.65 mm axial float.
       Assembly order: push the link tube fully home in both fittings FIRST,
       then tighten the straps, so the tube is never stretched or compressed.
-    * STATION BASE: two laser-cut 6 mm acrylic layers, solvent-welded. The wall
-      layer has the M6 wall slots and hex pockets for the captive M4 nuts; the
-      front layer has the dowel holes for every clamp module (cut in one pass,
-      which keeps the link tube coaxial), M4 clearance holes and M6 head slots.
+    * STATION BASE: ONE 12 mm cast acrylic plate. Through-cuts: outline, M6
+      wall slots, the dowel holes for every clamp module (cut in one pass,
+      which keeps the link tube coaxial) and M4 clearance holes. Pockets,
+      6 mm deep: hex pockets for the captive M4 nuts from the wall face, M6
+      head counterbore slots from the front face. One DXF, one layer per
+      feature (CUT, POCKET_WALL_FACE, POCKET_FRONT_FACE).
 
 Global frame: as valve_clamp/clamp.py (wall Y = 0, +Y to operator, Z up).
 The flowmeter axis is along X at (Y = FM_Y, Z = 0), centred on X = x_center;
@@ -89,7 +92,7 @@ PED_H = 46.0  # pedestal / strap height along Z
 CAP_TOP_WALL = 6.0
 BAR_Z = (-PED_H / 2, -10.0)  # lower bar joining the pedestals, below the pipe (Z >= -6)
 BAR_T = 6.0  # along Y, from the plate; clear of the hexes (corners reach Y 16.1)
-PLATE_T = C.PLATE_T  # 12, both station-plate layers
+PLATE_T = C.PLATE_T  # 12, the one station plate
 PLATE_H = C.PLATE_H  # 92
 PLATE_L = 2 * (STRAP_X + STRAP_W / 2 + 3.5)  # station-plate length around the meter
 WALL_SCREW_X = 36.0  # between housing (+/-24.1) and straps (>= 48): hex-key path
@@ -202,7 +205,7 @@ def make_wall_screws(x_center: float, length: float = 40.0) -> list[Solid]:
     return C.make_wall_screws(xs=[x_center + sx * WALL_SCREW_X for sx in (-1, 1)], length=length)
 
 
-# --- Station base plate (laser-cut acrylic, holes only) ------------------------------
+# --- Station base plate (one acrylic plate: through-cuts + 6 mm pockets) -------------
 def _outline(x_center: float) -> Sketch:
     xs = [-C.VALVE_PLATE_L / 2, C.VALVE_PLATE_L / 2, x_center - PLATE_L / 2, x_center + PLATE_L / 2]
     x0, x1 = min(xs), max(xs)
@@ -227,17 +230,9 @@ def all_dowel_xz(x_center: float) -> list[tuple[float, float]]:
     return list(C.DOWEL_XZ) + dowel_xz(x_center)
 
 
-def base_back_profile(x_center: float) -> Sketch:
-    """Wall layer: M6 wall slots + hex pockets for the captive M4 nuts."""
+def plate_cut_profile(x_center: float) -> Sketch:
+    """Through-cuts: outline, M6 wall slots, dowel holes (the alignment datum), M4 holes."""
     p = _outline(x_center) - _wall_slots(x_center, C.WALL_HOLE_D)
-    for x, z in all_mount_xz(x_center):
-        p -= Pos(x, z) * RegularPolygon(C.NUT_POCKET_AF / 2, 6, major_radius=False)
-    return p
-
-
-def base_front_profile(x_center: float) -> Sketch:
-    """Front layer: dowel holes (the alignment datum), M4 holes, M6 head slots."""
-    p = _outline(x_center) - _wall_slots(x_center, C.WALL_CB_D)
     for x, z in all_dowel_xz(x_center):
         p -= Pos(x, z) * Circle(C.DOWEL_HOLE_D / 2)
     for x, z in all_mount_xz(x_center):
@@ -245,12 +240,35 @@ def base_front_profile(x_center: float) -> Sketch:
     return p
 
 
-def make_station_base(x_center: float) -> dict[str, Solid]:
-    """Station base: wall layer + front layer, holes only."""
+def nut_pockets(x_center: float) -> Sketch:
+    """Hex pockets for the captive M4 nuts, NUT_POCKET_DEPTH deep from the wall face."""
+    out = None
+    for x, z in all_mount_xz(x_center):
+        h = Pos(x, z) * RegularPolygon(C.NUT_POCKET_AF / 2, 6, major_radius=False)
+        out = h if out is None else out + h
+    return out
+
+
+def head_pockets(x_center: float) -> Sketch:
+    """M6 head counterbore slots, WALL_CB_DEPTH deep from the front face."""
+    return _wall_slots(x_center, C.WALL_CB_D)
+
+
+def plate_layers(x_center: float) -> dict[str, Sketch]:
+    """DXF layers: through-cut and the two pocket features (6 mm each)."""
     return {
-        "base_back": C.plate(base_back_profile(x_center), 0.0),
-        "base_front": C.plate(base_front_profile(x_center), C.SHEET_T),
+        "CUT": plate_cut_profile(x_center),
+        "POCKET_WALL_FACE": nut_pockets(x_center),
+        "POCKET_FRONT_FACE": head_pockets(x_center),
     }
+
+
+def make_station_base(x_center: float) -> dict[str, Solid]:
+    """Station base: one plate, through-cuts plus 6 mm pockets from each face."""
+    plate = C.plate(plate_cut_profile(x_center), 0.0, PLATE_T)
+    plate -= C.plate(nut_pockets(x_center), 0.0, C.NUT_POCKET_DEPTH)
+    plate -= C.plate(head_pockets(x_center), C.WALL_SEAT_Y, C.WALL_CB_DEPTH)
+    return {"base_plate": plate}
 
 
 if __name__ == "__main__":
@@ -258,9 +276,7 @@ if __name__ == "__main__":
     import assembly as A
 
     xc, inlet = A.X_FM, -A.FLOW_DIR
-    C.export_profiles(
-        {"base_back": base_back_profile(xc), "base_front": base_front_profile(xc)}, here
-    )
+    C.export_layers(plate_layers(xc), here / "base_plate.dxf")
     parts = make_station_base(xc) | {
         "sv3051_clamp_base": make_base(xc, inlet),
         "sv3051_clamp_strap": make_cap_unclamped(STRAP_X),
@@ -276,5 +292,8 @@ if __name__ == "__main__":
         f"straps: 2 x M4x{CAP_SCREW_LEN:.0f} + DIN 125 each into inserts, {STRAP_TORQUE} N.m; "
         f"base: 2 x M4x{MOUNT_LEN:.0f} into captive nuts, {C.MOUNT_TORQUE} N.m; 2 x dowel 4 m6 x 12"
     )
-    print("Exported base_back/base_front .dxf (laser cutting) in flowmeter_clamp/")
+    print(
+        "Exported flowmeter_clamp/base_plate.dxf: layer CUT (through), POCKET_WALL_FACE and "
+        f"POCKET_FRONT_FACE ({C.NUT_POCKET_DEPTH:.0f} / {C.WALL_CB_DEPTH:.0f} mm deep)"
+    )
     print("STEP: uv run python tools/export_step.py -> output/step/")

@@ -185,7 +185,7 @@ def test_excessive_strap_torque_overloads_petg(parts, monkeypatch):
 def test_hex_angle_check_rejects_obstruction(parts):
     bad = dict(parts)
     bb = parts["qsf_body_in"].bounding_box()
-    bad["base_front"] = Pos(bb.center().X, A.FCL.FM_Y + A.FCL.BODY_D / 2 - 0.5, 0) * Box(2, 2, 2)
+    bad["base_plate"] = Pos(bb.center().X, A.FCL.FM_Y + A.FCL.BODY_D / 2 - 0.5, 0) * Box(2, 2, 2)
     assert "fits any hex angle (fittings 0..60 deg)" in failed_names(A.check_flowmeter_clamp, bad)
 
 
@@ -229,3 +229,11 @@ def test_assembly_motion_rejects_an_obstacle_between_old_snapshots():
     assert "assembly order is collision-free" in failed_names(A.check_assembly_order, bad)
     del bad["base_test_obstacle"]
     assert not failed_names(A.check_assembly_order, bad)
+
+
+def test_plate_check_rejects_a_second_layer_and_a_stray_pocket(parts):
+    bad = dict(parts, base_extra=parts["base_plate"])
+    assert "station plate: one plate, through-cuts + pockets" in failed_names(A.check_modules, bad)
+    stray = parts["base_plate"] - Pos(-20, 12, 0) * Box(5, 4, 5)  # 2 mm deep: not a listed depth
+    bad = dict(parts, base_plate=stray)
+    assert "station plate: one plate, through-cuts + pockets" in failed_names(A.check_modules, bad)

@@ -137,7 +137,7 @@
   },
   "STATION-035": {
     "section": "check_alignment",
-    "name": "both clamp bases on one station-plate layer"
+    "name": "both clamp bases dowelled into one station plate"
   },
   "STATION-036": {
     "section": "check_alignment",
@@ -217,7 +217,7 @@
   },
   "STATION-055": {
     "section": "check_modules",
-    "name": "station plate: 2 flat layers, holes only (laser)"
+    "name": "station plate: one plate, through-cuts + pockets"
   },
   "STATION-056": {
     "section": "check_modules",

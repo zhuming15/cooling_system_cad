@@ -4,9 +4,10 @@
     2 x Festo QSF-1/2-12-B push-in, G1/2 female         (flowmeter_connector/...)
     RS PRO 283-8289 G1/4 flow control valve (bidirectional)  (valve/valve.py)
     2 x SMC KQ2H12-U02A push-in, Uni 1/4 male           (valve_connector/...)
-    Station base: laser-cut acrylic plate, holes only. Clamp modules screw onto
-    it (3D printed, dowel-located): valve base + cap, flowmeter base + 2 straps.
-    M4 into heat-set inserts / captive nuts, 8 x M6 wall screws
+    Station base: one 12 mm acrylic plate (through-cuts + 6 mm pockets). Clamp
+    modules screw onto it (3D printed, dowel-located): valve base + cap,
+    flowmeter base + 2 straps. M4 into heat-set inserts / captive nuts, 8 x M6
+    wall screws
     (valve_clamp/clamp.py, flowmeter_clamp/flowmeter_clamp.py)
 
 Global frame: wall = plane Y=0 (+Y toward operator), Z up, flow along +X.
@@ -168,7 +169,7 @@ def build() -> dict[str, Solid]:
     # straight link tube, exactly stop-to-stop: QSF outlet -> valve fitting A
     parts["tube_link"] = make_link_tube()
 
-    # station base: laser-cut plate with holes only; printed clamp modules screw onto it
+    # station base: one cut and pocketed plate; printed clamp modules screw onto it
     parts |= FCL.make_station_base(X_FM)
     parts["valve_clamp_base"] = C.make_base()
     parts["valve_clamp_cap"] = C.make_cap()
@@ -323,8 +324,8 @@ def check_wall_mounting(parts: dict[str, Solid], r: Report) -> None:
         min_y >= -1e-6,
         f"min Y of hardware = {min_y:.3f} mm",
     )
-    base_back = parts["base_back"].bounding_box().min.Y
-    r.check("base back face flush on wall", abs(base_back) < 1e-6, f"Y = {base_back:.3f}")
+    back = parts["base_plate"].bounding_box().min.Y
+    r.check("base back face flush on wall", abs(back) < 1e-6, f"Y = {back:.3f}")
     blocked = []
     screws = [n for n in parts if n.startswith("wall_screw")]
     for n in screws:
@@ -444,17 +445,21 @@ def check_connectors(parts: dict[str, Solid], r: Report) -> None:
 
 
 def check_modules(parts: dict[str, Solid], r: Report) -> None:
-    r.start("10. Clamp modules on the station base (printed clamps, laser-cut plate)")
-    # plate layers: flat laser-cut profiles with holes only
-    flat = []
-    for n in ("base_back", "base_front"):
-        flat += [] if CK.is_flat_profile(parts[n], C.SHEET_T, axis=1) else [n]
+    r.start("10. Clamp modules on the station base (printed clamps, one acrylic plate)")
+    # one plate: through-cuts plus pockets at the two named depths only (2.5D)
+    plate = parts["base_plate"]
+    ledges = (C.NUT_POCKET_DEPTH, C.WALL_SEAT_Y)
+    one = len(plate.solids()) == 1 and not any(
+        n.startswith("base_") for n in parts if n != "base_plate"
+    )
     r.check(
-        "station plate: 2 flat layers, holes only (laser)",
-        not flat,
-        f"{C.SHEET_T:.0f} mm profiles: wall slots, nut pockets, dowel and M4 holes"
-        if not flat
-        else f"not a flat profile: {flat}",
+        "station plate: one plate, through-cuts + pockets",
+        one and CK.is_pocketed_profile(plate, C.PLATE_T, ledges, axis=1),
+        f"{C.PLATE_T:.0f} mm: outline, wall slots, dowel and M4 holes through; "
+        f"nut pockets {C.NUT_POCKET_DEPTH:.0f} deep from the wall, M6 head slots "
+        f"{C.WALL_CB_DEPTH:.0f} deep from the front"
+        if one
+        else "more than one plate body / layer",
     )
     # every clamp base: 2 dowels in plate holes, >= 2 mount screws in nuts
     dowels = [n for n in parts if n.startswith("dowel_")]
@@ -465,8 +470,8 @@ def check_modules(parts: dict[str, Solid], r: Report) -> None:
         in_plate = [
             d
             for d in mine
-            if parts[d].distance_to(parts["base_front"]) <= slip
-            and parts[d].bounding_box().min.Y <= C.SHEET_T + 1e-6
+            if parts[d].distance_to(parts["base_plate"]) <= slip
+            and parts[d].bounding_box().min.Y <= C.PLATE_T - C.DOWEL_IN_PLATE + 1e-6
         ]
         mounts = [
             n
@@ -504,9 +509,7 @@ def check_modules(parts: dict[str, Solid], r: Report) -> None:
     for n in mounts:
         bb = parts[n].bounding_box()
         probe = y_probe(6.5, bb.center().X, bb.center().Z, bb.max.Y + 0.1, 150)
-        stage = {
-            k: parts[k] for k in ("base_back", "base_front", "valve_clamp_base", "fm_clamp_base")
-        }
+        stage = {k: parts[k] for k in ("base_plate", "valve_clamp_base", "fm_clamp_base")}
         blocked += ray_clear(stage, probe, set())
     r.check(
         "mount M4 reachable before the component goes in",
@@ -569,7 +572,7 @@ def check_modules(parts: dict[str, Solid], r: Report) -> None:
     r.check(
         f"printed parts fit a {C.PRINT_BED:.0f} mm printer bed",
         big <= C.PRINT_BED,
-        f"largest printed part {big:.0f} mm (flowmeter base); the 300 mm plate is laser-cut",
+        f"largest printed part {big:.0f} mm (flowmeter base); the 300 mm plate is cut, not printed",
     )
     print(
         f"  [INFO] torque: valve cap {C.CAP_TORQUE}, straps {FCL.STRAP_TORQUE}, "
@@ -739,8 +742,8 @@ def phase_sweep(parts: dict[str, Solid], step: float = 7.5) -> tuple[list[str], 
     if step <= 0:
         raise ValueError("phase step must be positive")
     groups = {  # fitting parts -> (axis Y, the clamp parts it must not hit)
-        "qsf": (FCL.FM_Y, ["base_front"] + [n for n in parts if n.startswith("fm_clamp")]),
-        "fitting": (C.VALVE_Y, ["base_front", "valve_clamp_base", "valve_clamp_cap"]),
+        "qsf": (FCL.FM_Y, ["base_plate"] + [n for n in parts if n.startswith("fm_clamp")]),
+        "fitting": (C.VALVE_Y, ["base_plate", "valve_clamp_base", "valve_clamp_cap"]),
     }
     hits, worst = [], 0.0
     for prefix, (y, clamp_names) in groups.items():
@@ -846,7 +849,7 @@ def check_alignment(parts: dict[str, Solid], r: Report) -> None:
         f"{in_qsf:.2f} mm in QSF (catalogue {FC.TUBE_INSERT}), "
         f"{in_kq2:.2f} mm in KQ2 (catalogue {F.TUBE_INSERT:.0f})",
     )
-    front = parts["base_front"]
+    front = parts["base_plate"]
     bases = ("valve_clamp_base", "fm_clamp_base")
     on_plate = max(front.distance_to(parts[n]) for n in bases)
     held = max(
@@ -858,9 +861,9 @@ def check_alignment(parts: dict[str, Solid], r: Report) -> None:
         )
     )
     r.check(
-        "both clamp bases on one station-plate layer",
+        "both clamp bases dowelled into one station plate",
         len(front.solids()) == 1 and on_plate < 1e-3 and held < 1e-3,
-        "valve and flowmeter clamp bases dowelled into base_front (holes cut in one pass); "
+        "valve and flowmeter clamp bases dowelled into base_plate (holes cut in one pass); "
         "wall slots move both together",
     )
     dy_c = abs(C.VALVE_Y - FCL.FM_Y)

@@ -1,14 +1,16 @@
 """Valve saddle clamp (3D printed) + shared constants for the modular wall station.
 
 Concept
-    * The STATION BASE is a flat laser-cut acrylic plate with holes only
-      (flowmeter_clamp.make_station_base): wall slots, dowel-pin holes and
-      M4 holes over captive nuts. Each clamp screws onto it as a module.
+    * The STATION BASE is ONE 12 mm acrylic plate (flowmeter_clamp.
+      make_station_base): through-cut outline, wall slots, dowel-pin holes and
+      M4 holes, plus two 6 mm-deep pocket features - hex pockets for captive
+      nuts from the wall face, M6 head counterbores from the front face. Each
+      clamp screws onto it as a module.
     * CLAMP BASE (printed PETG) - lower half of a square U-channel. It is
       located on the plate by 2 steel dowel pins (ISO 8734, pressed into the
-      base) in laser-cut holes of the plate's front layer, and fixed by 2 x M4
-      from the front, through the channel floor, into captive nuts in the
-      plate's wall layer. Fit it BEFORE the valve: the M4 heads sit below the
+      base) in holes of the station plate, and fixed by 2 x M4 from the
+      front, through the channel floor, into captive nuts in hex pockets on
+      the plate's wall face. Fit it BEFORE the valve: the M4 heads sit below the
       channel floor and the valve covers them.
     * CLAMP HEAD (cap, printed) - matching upper U-channel with a dia 27.5
       operator window that clears the 18 x 18 stem boss and passes the dia 22
@@ -54,7 +56,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "valve"))
 import valve as V
 
 # --- Processes / materials (values marked ESTIMATE have no single source) ----------
-SHEET_T = 6.0  # cast acrylic sheet, each station-base layer
 CUT_TOL = 0.1  # ESTIMATE: CO2 laser outline / hole position tolerance
 PRINT_TOL = 0.2  # ESTIMATE: FDM (PETG) feature position tolerance
 ACRYLIC_P_ALLOW = 10.0  # MPa, ESTIMATE: sustained contact pressure on PMMA (creep)
@@ -76,21 +77,25 @@ CAP_TOP_WALL = 6.0  # cap material in front of the body front face
 WINDOW_D = 27.5  # access window: boss half-diagonal 12.7, knob dia 22
 VALVE_PLATE_L = 57.0  # station-plate length around the valve (wall screws at +/-20)
 
-# --- Station base plate (two laser-cut layers) ------------------------------------
-PLATE_T = 2 * SHEET_T  # clamp bases sit on the front layer at Y = PLATE_T
+# --- Station base plate (one plate: through-cuts + 6 mm pockets) -------------------
+PLATE_T = 12.0  # cast acrylic, one sheet; clamp bases sit on its front face at Y = PLATE_T
+NUT_POCKET_DEPTH = 6.0  # hex pocket from the wall face; the nut is pulled onto its floor
+WALL_CB_DEPTH = 6.0  # M6 head counterbore slot from the front face (head height 6: flush)
 PLATE_H = 92.0  # along Z
 PLATE_R = 5.0
 WALL_SCREW_X = 20.0
 WALL_SCREW_Z = 37.0
 WALL_SLOT = 6.0  # vertical adjustment (+/-3 mm)
-WALL_HOLE_D = 6.6  # M6 clearance, wall layer
-WALL_CB_D = 11.5  # front-layer slot: M6 head dia 10 + clearance
-WALL_HEAD = (10.0, 6.0)  # M6 SHCS head dia, height (sits on the wall layer)
+WALL_HOLE_D = 6.6  # M6 clearance slot, through
+WALL_CB_D = 11.5  # counterbore slot: M6 head dia 10 + clearance
+WALL_HEAD = (10.0, 6.0)  # M6 SHCS head dia, height (sits on the counterbore floor)
+WALL_SEAT_Y = PLATE_T - WALL_CB_DEPTH  # M6 head seat
 
 # --- Dowel pins: ISO 8734 4 m6 x 12, pressed into the printed base ------------------
 DOWEL_D = 4.0
-DOWEL_L = 12.0  # 6 in the base, 6 in the plate front layer
-DOWEL_HOLE_D = DOWEL_D + 0.1  # laser hole in the front layer: slip fit
+DOWEL_L = 12.0  # 6 in the base, 6 in the plate
+DOWEL_IN_PLATE = 6.0  # dowel engagement in the plate (through hole)
+DOWEL_HOLE_D = DOWEL_D + 0.1  # plate hole: slip fit
 DOWEL_XZ = ((0.0, -14.0), (0.0, 14.0))  # valve base, either side of the channel
 
 # --- M4 hardware ---------------------------------------------------------------------
@@ -102,9 +107,9 @@ M4_CB_D = 7.5  # counterbore for a bare head
 WASHER = (9.0, 4.3, 0.8)  # DIN 125-A M4: OD, ID, thickness (cap / strap screws)
 CAP_CB_D = 9.5  # counterbore for washer + head
 CAP_CB_DEPTH = 5.5  # washer + head (4.8) recessed 0.7
-NUT_AF, NUT_M = 7.0, 3.2  # ISO 4032 M4, captive in the plate's wall layer
+NUT_AF, NUT_M = 7.0, 3.2  # ISO 4032 M4, captive in a hex pocket on the plate's wall face
 NUT_POCKET_AF = 7.2
-Y_NUT = (SHEET_T - NUT_M, SHEET_T)  # nut pulled against the front layer
+Y_NUT = (NUT_POCKET_DEPTH - NUT_M, NUT_POCKET_DEPTH)  # nut pulled onto the pocket floor
 TIP_MIN_Y = 0.5  # screw tip clear of the wall
 INSERT = (5.6, 8.1)  # heat-set M4 insert (ruthex RX-M4x8.1): install hole dia, length
 INSERT_HOLE_DEPTH = 14.0  # below the split face (screw tip runs past the insert)
@@ -170,9 +175,9 @@ def box2d(u: tuple, v: tuple) -> Sketch:
     return Pos((u[0] + u[1]) / 2, (v[0] + v[1]) / 2) * Rectangle(u[1] - u[0], v[1] - v[0])
 
 
-def plate(profile: Sketch, y0: float) -> Solid:
-    """Profile drawn in (u, v) = (global X, global Z), extruded SHEET_T from y0 to +Y."""
-    return extrude(Plane.XZ.offset(-y0) * profile, -SHEET_T)
+def plate(profile: Sketch, y0: float, t: float) -> Solid:
+    """Profile drawn in (u, v) = (global X, global Z), extruded t from y0 to +Y."""
+    return extrude(Plane.XZ.offset(-y0) * profile, -t)
 
 
 def _y_cyl(d: float, h: float, x: float, y0: float, z: float) -> Solid:
@@ -188,7 +193,7 @@ def base_holes(part: Solid, mount_xz, mount_seat, dowel_xz, insert_xz, y_split, 
         part -= _y_cyl(M4_CLR_D, -(y_top - PLATE_T + 2), x, y_top + 1, z)
         part -= _y_cyl(M4_CB_D, -(y_top - mount_seat + 1), x, y_top + 1, z)
     for x, z in dowel_xz:
-        part -= _y_cyl(DOWEL_D, DOWEL_L - SHEET_T, x, PLATE_T, z)
+        part -= _y_cyl(DOWEL_D, DOWEL_L - DOWEL_IN_PLATE, x, PLATE_T, z)
     for x, z in insert_xz:
         part -= _y_cyl(INSERT[0], -INSERT_HOLE_DEPTH, x, y_split, z)
     return part
@@ -225,7 +230,7 @@ def insert(x: float, z: float, y_split: float) -> Solid:
 
 
 def dowel(x: float, z: float) -> Solid:
-    return _y_cyl(DOWEL_D, DOWEL_L, x, SHEET_T, z)
+    return _y_cyl(DOWEL_D, DOWEL_L, x, PLATE_T - DOWEL_IN_PLATE, z)
 
 
 def make_hardware(cap_xz, cap_seat, cap_len, mount_xz, mount_seat, mount_len, dowel_xz, y_split):
@@ -301,25 +306,25 @@ def make_hw() -> dict[str, list[Solid]]:
 
 
 def make_wall_screws(xs=(-WALL_SCREW_X, WALL_SCREW_X), length: float = 40.0) -> list[Solid]:
-    """M6 SHCS into wall plugs, at slot centre, head on the wall layer."""
+    """M6 SHCS into wall plugs, at slot centre, head on the counterbore floor."""
     out = []
     for x in xs:
         for sz in (-1, 1):
             z = sz * WALL_SCREW_Z
             out.append(
-                _y_cyl(WALL_HEAD[0], WALL_HEAD[1], x, SHEET_T, z)
-                + _y_cyl(6.0, -length, x, SHEET_T, z)
+                _y_cyl(WALL_HEAD[0], WALL_HEAD[1], x, WALL_SEAT_Y, z)
+                + _y_cyl(6.0, -length, x, WALL_SEAT_Y, z)
             )
     return out
 
 
-def export_profiles(profiles: dict[str, Sketch], folder: Path) -> None:
-    """One DXF (laser) per profile, outline on layer CUT, in mm."""
-    for name, prof in profiles.items():
-        dxf = ExportDXF(unit=Unit.MM)
-        dxf.add_layer("CUT")
-        dxf.add_shape(prof, layer="CUT")
-        dxf.write(str(folder / f"{name}.dxf"))
+def export_layers(layers: dict[str, Sketch], path: Path) -> None:
+    """One DXF in mm, one DXF layer per feature (through-cut, each pocket)."""
+    dxf = ExportDXF(unit=Unit.MM)
+    for layer, prof in layers.items():
+        dxf.add_layer(layer)
+        dxf.add_shape(prof, layer=layer)
+    dxf.write(str(path))
 
 
 if __name__ == "__main__":

@@ -36,7 +36,7 @@ GROUPS = {
     "fitting_A": ("valve_fitting", "Valve fitting SMC KQ2H12-U02A (x2)"),
     "flowmeter_": ("flowmeter", "Flowmeter ifm SV3051"),
     "qsf_": ("flowmeter_fitting", "Flowmeter fitting Festo QSF-1/2-12-B (x2)"),
-    "base_front": ("station_base", "Station base, front layer (6 mm acrylic, laser)"),
+    "base_plate": ("station_base", "Station base (one 12 mm acrylic plate, 6 mm pockets)"),
     "valve_clamp_base": ("valve_clamp_base", "Valve clamp base (PETG, printed)"),
     "valve_clamp_cap": ("valve_clamp_cap", "Valve clamp cap (PETG, printed)"),
     "fm_clamp_base": ("fm_clamp_base", "Flowmeter clamp base (PETG, printed)"),

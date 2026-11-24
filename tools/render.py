@@ -169,7 +169,7 @@ def render_components(path: Path) -> None:
             None,
         ),
         (
-            "Station base - laser-cut acrylic, 2 x 6 mm layers, holes only",
+            "Station base - one 12 mm acrylic plate, through-cuts + 6 mm pockets",
             [(v, COLORS["base_"]) for v in FCL.make_station_base(A.X_FM).values()],
             (25, 60),
             (25, 230),
