@@ -616,6 +616,31 @@ def is_flat_profile(solid: Solid, thickness: float, axis: int = 1) -> bool:
     return True
 
 
+def is_pocketed_profile(
+    solid: Solid, thickness: float, ledges: Iterable[float], axis: int = 1
+) -> bool:
+    """True for a 2.5D sheet part: like `is_flat_profile`, but flat pocket floors
+    (counterbores, hex pockets) are allowed at the given depths, measured from the
+    lower sheet face along `axis`. A ledge at any other depth or a slope fails."""
+    bb = solid.bounding_box()
+    lo, hi = (bb.min.X, bb.min.Y, bb.min.Z)[axis], (bb.max.X, bb.max.Y, bb.max.Z)[axis]
+    if abs(hi - lo - thickness) > 1e-6:
+        return False
+    levels = [lo, hi] + [lo + d for d in ledges]
+    for f in solid.faces():
+        n = f.normal_at()
+        c = (n.X, n.Y, n.Z)[axis]
+        at = (f.center().X, f.center().Y, f.center().Z)[axis]
+        flat = (
+            f.geom_type.name == "PLANE"
+            and abs(abs(c) - 1) < 1e-6
+            and min(abs(at - v) for v in levels) < 1e-6
+        )
+        if not (flat or abs(c) < 1e-6):
+            return False
+    return True
+
+
 def max_extent(solid: Solid, axes: Sequence[int] = (0, 1, 2)) -> float:
     """Largest bounding-box size over the given axes (printer bed / sheet fit)."""
     s = solid.bounding_box().size

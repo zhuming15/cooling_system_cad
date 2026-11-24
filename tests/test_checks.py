@@ -7,7 +7,7 @@ function is proven both to pass and to fail.
 import math
 
 import pytest
-from build123d import Box, Cylinder, Pos, Rot
+from build123d import Axis, Box, Cylinder, Pos, Rot, chamfer
 
 from tools import checks as CK
 
@@ -115,6 +115,16 @@ def test_is_flat_profile():
     assert CK.is_flat_profile(corner, 6, axis=1)  # outline chamfer, square to the sheet
     sloped = chamfer(plate.edges().filter_by(Axis.Z)[0], 1)
     assert not CK.is_flat_profile(sloped, 6, axis=1)  # slope across the sheet: not laser
+
+
+def test_is_pocketed_profile():
+    plate = Box(50, 12, 30) - Rot(90, 0, 0) * Cylinder(3, 20)
+    pocket = plate - Pos(10, -6, 0) * Box(8, 12, 8)  # 6 deep from the lower face
+    assert CK.is_pocketed_profile(pocket, 12, [6.0], axis=1)
+    assert not CK.is_pocketed_profile(pocket, 12, [4.0], axis=1)  # floor at an unlisted depth
+    assert not CK.is_pocketed_profile(pocket, 10, [6.0], axis=1)  # wrong sheet
+    sloped = chamfer(plate.edges().filter_by(Axis.Z)[0], 1)
+    assert not CK.is_pocketed_profile(sloped, 12, [6.0], axis=1)  # slope across the sheet
 
 
 def test_max_extent():
