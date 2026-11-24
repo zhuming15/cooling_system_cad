@@ -93,9 +93,10 @@ Three identical sets are stacked on the wall (`assembly.STACK_N`,
 ## Commands
 
 ```bash
-uv sync                                   # deps (build123d, matplotlib, ocp-viewer, ruff, pytest)
+uv sync                                   # deps (build123d, matplotlib, ocp-viewer, ruff, pytest, pytest-xdist)
 uv run python assembly.py                 # MUST print "ALL CHECKS PASS" (exit 0)
-uv run pytest                             # MUST pass (~2 min; -m "not slow" for the quick ones)
+uv run pytest                             # MUST pass (4 isolated workers by default)
+uv run pytest -n 0                        # serial debug; add -m "not slow" for quicker feedback
 uv run python tools/render.py             # output/assembly.png + output/components.png
 uv run python tools/export_step.py        # output/step/: per-component + assembly STEP, bom.csv
 uv run python flowmeter_clamp/flowmeter_clamp.py  # plate DXF (laser) + flowmeter clamp sizes
@@ -279,6 +280,8 @@ and the README "Tight margins" list must stay current:
   boxes. Do not use it to reject collision candidates; use the inclusive
   bounds logic in `tools/checks.py`. Bounds caches are local to one check
   invocation so changed solids cannot reuse stale measurements.
+  `GeometryQueries` detects moves and wrapped replacements; direct OCCT topology
+  edits require `invalidate(shape)` or a fresh context.
 - `ocp_viewer.show()` does nothing and raises no error when no viewer is
   running. That's why `tools/view.py` checks the port first.
 

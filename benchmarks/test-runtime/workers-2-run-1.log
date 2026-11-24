@@ -1,0 +1,29 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.2.0, pluggy-1.7.0
+rootdir: /home/nqpi/flow
+configfile: pyproject.toml
+testpaths: tests
+plugins: xdist-3.8.0, platformdirs-4.14.7
+created: 2/2 workers
+2 workers [104 items]
+
+........................................................................ [ 69%]
+................................                                         [100%]
+- generated xml file: /home/nqpi/flow/benchmarks/test-runtime/workers-2-run-1.xml -
+============================= slowest 15 durations =============================
+45.92s call     tests/test_assembly.py::test_section_passes[check_assembly_order]
+15.16s call     tests/test_assembly.py::test_section_passes[check_printing]
+5.61s call     tests/test_assembly.py::test_stack_catches_a_short_pitch
+3.49s setup    tests/test_assembly.py::test_section_passes[check_printing]
+3.49s setup    tests/test_assembly.py::test_section_passes[check_assembly_order]
+2.77s call     tests/test_assembly.py::test_section_passes[check_wall_mounting]
+2.12s call     tests/test_assembly.py::test_stack_access_catches_a_neighbour_in_front_of_the_knob
+2.08s call     tests/test_assembly.py::test_section_passes[check_stack]
+1.93s call     tests/test_assembly.py::test_stack_catches_a_plate_for_one_set_only
+1.90s call     tests/test_assembly.py::test_hex_angle_check_rejects_obstruction
+1.89s call     tests/test_assembly.py::test_section_passes[check_flowmeter_clamp]
+1.63s call     tests/test_assembly.py::test_section_passes[check_interference]
+1.06s setup    tests/test_interconnect.py::test_connector_valid_and_source_envelope
+0.81s call     tests/test_assembly.py::test_electrical_check_rejects_wrong_key_phase
+0.61s call     tests/test_assembly.py::test_section_passes[check_flowmeter_access]
+============================= 104 passed in 51.81s =============================

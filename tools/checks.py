@@ -33,8 +33,35 @@ VOLUME_TOL = 1e-3  # mm³: existing interference acceptance threshold
 GEOMETRY_EPS = 1e-7  # mm: conservative padding for OCCT bounding boxes
 
 
-def _bounds(shape):
-    box = shape.bounding_box()
+class GeometryQueries:
+    """Bounds shared within one check, never globally or between workers.
+
+    Placement changes and replacement topology invalidate automatically. Treat
+    topology as immutable while querying; after direct OCCT topology edits call
+    invalidate(), or start a fresh context. Strong references prevent id reuse.
+    """
+
+    def __init__(self):
+        self._boxes = {}
+
+    def box(self, shape):
+        key = id(shape)
+        entry = self._boxes.get(key)
+        if entry is None or not entry[1].IsEqual(shape.wrapped):
+            snapshot = shape.wrapped.Located(shape.wrapped.Location())
+            entry = (shape, snapshot, shape.bounding_box())
+            self._boxes[key] = entry
+        return entry[2]
+
+    def invalidate(self, shape):
+        self._boxes.pop(id(shape), None)
+
+    def clear(self):
+        self._boxes.clear()
+
+
+def _bounds(shape, context=None):
+    box = context.box(shape) if context is not None else shape.bounding_box()
     return tuple(box.min), tuple(box.max)
 
 
@@ -85,9 +112,9 @@ class Report:
 # --------------------------------------------------------------------------
 # Geometry
 # --------------------------------------------------------------------------
-def overlap(a: Solid, b: Solid) -> float:
+def overlap(a: Solid, b: Solid, *, context: GeometryQueries | None = None) -> float:
     """Volume (mm3) shared by two solids; 0 when their boxes don't meet."""
-    if not _boxes_meet(_bounds(a), _bounds(b)):
+    if not _boxes_meet(_bounds(a, context), _bounds(b, context)):
         return 0.0
     return _common_volume(a, b)
 
@@ -248,14 +275,22 @@ def rotation_envelope(solid: Solid, origin: Sequence[float], axis: Sequence[floa
     return frame * Compound(pieces)
 
 
-def ray_clear(parts: dict[str, Solid], probe: Solid, ignore: Iterable[str] = ()) -> list[str]:
+def ray_clear(
+    parts: dict[str, Solid],
+    probe: Solid,
+    ignore: Iterable[str] = (),
+    *,
+    context: GeometryQueries | None = None,
+) -> list[str]:
     """Names of the parts (other than `ignore`) that the probe solid hits."""
     ignore = set(ignore)
-    pb = _bounds(probe)
+    pb = _bounds(probe, context)
     return [
         n
         for n, p in parts.items()
-        if n not in ignore and _boxes_meet(_bounds(p), pb) and _common_volume(p, probe) > VOLUME_TOL
+        if n not in ignore
+        and _boxes_meet(_bounds(p, context), pb)
+        and _common_volume(p, probe) > VOLUME_TOL
     ]
 
 
@@ -285,7 +320,7 @@ def _linear_envelope(solid, direction, travel):
     return Compound(pieces)
 
 
-def _slab_motion_clear(a, b, axis, travel):
+def _slab_motion_clear(a, b, axis, travel, context=None):
     """Certify sliding tangencies using conservative bounds of exact CAD slices.
 
     Slice both solids at their feature vertices perpendicular to a coordinate
@@ -294,7 +329,7 @@ def _slab_motion_clear(a, b, axis, travel):
     time, even for a flat sliding on a ledge inside a much larger bounding box.
     Failure to prove clearance simply falls back to adaptive distance checks.
     """
-    ab, bb = _bounds(a), _bounds(b)
+    ab, bb = _bounds(a, context), _bounds(b, context)
     for coordinate, velocity in enumerate(axis):
         if abs(velocity) > 1e-12:
             continue
@@ -376,6 +411,8 @@ def sweep(
     step: float = 1.0,
     *,
     max_evaluations: int = 2048,
+    first_failure: bool = False,
+    context: GeometryQueries | None = None,
 ) -> dict[tuple[str, str], float]:
     """Certify linear insertion, including both endpoints and between samples.
 
@@ -389,15 +426,19 @@ def sweep(
 
     Returns {(moving, installed): witness/uncertified distance from home}; this
     is deliberately not a claim of an exact first-contact position. No global
-    shape cache is retained between calls.
+    shape cache is retained between calls. With first_failure=True, return on
+    the first collision OR uncertified pair; clear paths still require proof
+    for every pair. The default collects all pairs for diagnostic use.
     """
     if not math.isfinite(travel) or travel < 0 or not math.isfinite(step) or step <= 0:
         raise ValueError("travel must be finite and nonnegative; step must be positive")
     axis = tuple(float(v) for v in axis)
     if len(axis) != 3 or not math.isclose(math.hypot(*axis), 1.0, abs_tol=1e-9):
         raise ValueError("axis must be a finite unit vector")
-    bounds = {n: _bounds(parts[n]) for n in set(moving) | set(installed)}
+    context = context if context is not None else GeometryQueries()
+    bounds = {n: _bounds(parts[n], context) for n in set(moving) | set(installed)}
     areas = {}
+    solids = {}
     envelopes = {}
     hits = SweepHits()
     for m in moving:
@@ -419,14 +460,20 @@ def sweep(
                 if m not in envelopes:
                     envelopes[m] = _linear_envelope(parts[m], tuple(-v for v in axis), travel)
                 envelope = envelopes[m]
-                if envelope is not None and overlap(envelope, parts[n]) <= VOLUME_TOL:
+                if (
+                    envelope is not None
+                    and overlap(envelope, parts[n], context=context) <= VOLUME_TOL
+                ):
                     continue
                 # Sweeping the fixed object in the opposite relative direction
                 # describes the same set of collisions.
                 if n not in envelopes:
                     envelopes[n] = _linear_envelope(parts[n], axis, travel)
                 envelope = envelopes[n]
-                if envelope is not None and overlap(envelope, parts[m]) <= VOLUME_TOL:
+                if (
+                    envelope is not None
+                    and overlap(envelope, parts[m], context=context) <= VOLUME_TOL
+                ):
                     continue
             # Include the seated position; static interference remains a separate
             # station check, but the generic motion checker must also cover it.
@@ -452,17 +499,25 @@ def sweep(
                     # into a clear path merely because an evaluation budget ran out.
                     hits[(m, n)] = mid
                     hits.unresolved.add((m, n))
+                    if first_failure:
+                        return hits
                     break
                 queries += 1
-                if queries == 64 and _slab_motion_clear(parts[m], parts[n], axis, travel):
+                if queries == 64 and _slab_motion_clear(parts[m], parts[n], axis, travel, context):
                     break
                 moved = Pos(*(-v * mid for v in axis)) * parts[m]
-                distance = moved.distance_to(parts[n])
+                # OCCT can report boundary distance for nested Compounds.
+                # Query their solids so a fully enclosed part has distance zero.
+                if n not in solids:
+                    solids[n] = parts[n].solids()
+                distance = min(a.distance_to(b) for a in moved.solids() for b in solids[n])
                 if distance > radius + GEOMETRY_EPS:
                     continue
                 volume = 0.0 if distance > GEOMETRY_EPS else _common_volume(moved, parts[n])
                 if volume > VOLUME_TOL:
                     hits[(m, n)] = mid
+                    if first_failure:
+                        return hits
                     break
                 if m not in areas:
                     areas[m] = parts[m].area

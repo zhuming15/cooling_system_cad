@@ -17,6 +17,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.2.0",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.17.6",
 ]
 
@@ -31,7 +32,8 @@ known-first-party = ["assembly", "clamp", "tools", "valve", "valve_connector"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = "-ra -n4 --dist=load --maxschedchunk=1"
 markers = [
+    "long_geometry: expensive geometry checks scheduled early on parallel workers",
     "slow: runs the assembly-level geometry checks (about a minute in total)",
 ]

@@ -294,3 +294,54 @@ def test_wall_measurement_reports_coverage_and_rejects_missing_samples():
         CK.wall_measurement(Solid())
     with pytest.raises(ValueError, match="positive"):
         CK.wall_measurement(Box(1, 1, 1), per_face=0)
+
+
+def test_query_bounds_reused_and_invalidated_after_geometry_changes(monkeypatch):
+    from build123d import Shape
+
+    a, b = Box(10, 10, 10), Box(2, 2, 2)
+    original = Shape.bounding_box
+    calls = []
+
+    def counted(shape, *args, **kwargs):
+        calls.append(shape)
+        return original(shape, *args, **kwargs)
+
+    monkeypatch.setattr(Shape, "bounding_box", counted)
+    context = CK.GeometryQueries()
+    for _ in range(3):
+        assert CK.overlap(a, b, context=context) == pytest.approx(8)
+        assert CK.ray_clear({"a": a}, b, context=context) == ["a"]
+    assert len(calls) == 2
+    b.move(Pos(30, 0, 0))
+    assert CK.overlap(a, b, context=context) == 0
+    assert len(calls) == 3
+    b.wrapped = Box(1, 1, 1).wrapped
+    assert CK.overlap(a, b, context=context) == pytest.approx(1)
+    before = len(calls)
+    context.invalidate(a)
+    context.box(a)
+    assert len(calls) == before + 1
+    context.clear()
+    context.box(a)
+    CK.GeometryQueries().box(a)
+    assert len(calls) == before + 3
+
+
+@pytest.mark.parametrize("first_failure", [False, True])
+def test_sweep_failure_mode_preserves_clearance_and_collision_evidence(first_failure):
+    parts = {
+        "moving": Box(2, 2, 2),
+        "far": Pos(20, 0, 0) * Box(2, 2, 2),
+        "one": Box(1, 1, 1),
+        "two": Box(1, 1, 1),
+    }
+    assert not CK.sweep(parts, ["moving"], ["far"], travel=0, first_failure=first_failure)
+    hits = CK.sweep(parts, ["moving"], ["far", "one", "two"], travel=0, first_failure=first_failure)
+    assert list(hits) == [("moving", "one")] + ([] if first_failure else [("moving", "two")])
+    assert not hits.unresolved
+    unresolved = CK.sweep(
+        parts, ["moving"], ["one", "two"], travel=0, max_evaluations=0, first_failure=first_failure
+    )
+    assert len(unresolved) == (1 if first_failure else 2)
+    assert unresolved.unresolved == set(unresolved)

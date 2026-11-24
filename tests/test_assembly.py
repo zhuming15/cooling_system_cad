@@ -31,7 +31,16 @@ def test_every_section_function_is_run():
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("section", A.SECTIONS, ids=lambda s: s.__name__)
+@pytest.mark.parametrize(
+    "section",
+    [
+        pytest.param(section, marks=pytest.mark.long_geometry)
+        if section in (A.check_assembly_order, A.check_printing)
+        else section
+        for section in A.SECTIONS
+    ],
+    ids=lambda s: s.__name__,
+)
 def test_section_passes(section, parts):
     r = run(section, parts)
     assert r.results, "section ran no checks"

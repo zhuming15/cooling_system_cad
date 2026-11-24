@@ -320,7 +320,7 @@ surface points and 4,843 functional feature-edge samples). No fit-critical
 dimensions require estimated or scaled values. The standalone-stage 52-test suite passed;
 the 16 component/vendor-tool tests passed again after the final gland-edge
 correction. Those results describe the standalone component, before mating.
-The assembled station is verified by **76 design checks** and **101 pytest tests**,
+The assembled station is verified by **76 design checks** and **104 pytest tests**,
 including negative tests for plug displacement, wrong key phase, insertion
 obstructions, insufficient strap torque and excessive PETG bearing pressure.
 
@@ -372,7 +372,8 @@ uv sync
 
 ```bash
 uv run python assembly.py           # build the station, run the design checks (~1 min)
-uv run pytest                       # tests (-m "not slow" for the quick ones)
+uv run pytest                       # full suite, 4 isolated workers
+uv run pytest -n 0                  # serial debug (-m "not slow" for quicker feedback)
 uv run python tools/export_step.py  # output/step/: one STEP per part, assembly STEP, bom.csv
 uv run python tools/render.py       # output/assembly.png, output/components.png
 uv run python flowmeter_clamp/flowmeter_clamp.py   # plate DXF + flowmeter clamp sizes
@@ -448,7 +449,7 @@ missing, duplicate or unexpected checks. Change the inventory explicitly when
 an engineering requirement changes; do not regenerate it merely to pass a test.
 Negative tests target individual failure modes, including contained collisions,
 false tubes with the correct bounding box, and obstacles between the former
-motion snapshots. This is targeted fault coverage, not a claim that all 71
+motion snapshots. This is targeted fault coverage, not a claim that all 76
 requirements have a separate negative case.
 
 Collision pruning uses inclusive box intersection, including containment.
@@ -481,6 +482,39 @@ For quick work on the reusable tools, use
 tests. Holding-load calculations are separate from geometric fitting checks,
 and the tube-last negative test isolates that impossible installation step.
 The complete suite and release workflow below remain required.
+
+
+The default parallel run uses four separate pytest processes, each with its own
+session-scoped assembly. Long assembly-order and printability checks start early;
+a short test follows each to accommodate xdist's next-item reservation.
+`--maxschedchunk=1` keeps later work distributed. Override with `-n 0` for serial
+debugging or `-n 2` on smaller machines.
+
+Stack collision, tool and service queries share a `GeometryQueries` context for
+one check invocation. Bounds are reused for unchanged shapes; moves and wrapped
+shape replacements invalidate automatically. The context retains strong shape
+references and is discarded after the check. Direct low-level OCCT topology
+edits require `invalidate(shape)` or a new context. There is no global cache.
+
+Acceptance motion queries request `first_failure=True`: a collision or an
+uncertified interval already fails that query, so later pairs add no acceptance
+information. Passing queries still certify every candidate pair, and every
+report check still runs. Call `sweep()` with its default `first_failure=False`
+for all collision pairs. Distance queries use actual solids to detect parts
+fully enclosed in compound wrappers; numerical limits are unchanged.
+
+Reproduce the configuration experiment with
+`uv run python tools/benchmark_tests.py` (three full runs each with serial, two
+and four workers). It writes subprocess wall times, logs, JUnit reports and a
+plot under `benchmarks/test-runtime/`. The reported 742-second earlier run is
+labelled as user-reported; it is not a controlled baseline. Nine measured full
+runs passed all 104 tests: medians were 94.00 s serial, 51.98 s with two workers,
+and 52.36 s with four. A controlled stack profile with only bounds reuse disabled
+versus enabled fell from 56.82 s / 20,440 bounds calculations to 2.10 s / 411.
+See `benchmarks/README.md` for logs, methodology and plots. To isolate bounds
+reuse on identical code, run `tools/profile_stack.py --output <file.json>` once
+normally and once with `--uncached`, in separate processes with no other CAD
+jobs running.
 
 ## Maintaining the design
 

@@ -1,0 +1,177 @@
+{
+  "reported_before_seconds": 742,
+  "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+  "runs": [
+    {
+      "workers": 0,
+      "repeat": 1,
+      "seconds": 94.54324822401395,
+      "exit_code": 0,
+      "command": [
+        "/home/nqpi/flow/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "0",
+        "--durations=15",
+        "--junitxml=/home/nqpi/flow/benchmarks/test-runtime/workers-0-run-1.xml"
+      ],
+      "tests": 104,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "workers": 2,
+      "repeat": 1,
+      "seconds": 51.980005433026236,
+      "exit_code": 0,
+      "command": [
+        "/home/nqpi/flow/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "2",
+        "--durations=15",
+        "--junitxml=/home/nqpi/flow/benchmarks/test-runtime/workers-2-run-1.xml"
+      ],
+      "tests": 104,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "workers": 4,
+      "repeat": 1,
+      "seconds": 52.73318573500728,
+      "exit_code": 0,
+      "command": [
+        "/home/nqpi/flow/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "4",
+        "--durations=15",
+        "--junitxml=/home/nqpi/flow/benchmarks/test-runtime/workers-4-run-1.xml"
+      ],
+      "tests": 104,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "workers": 2,
+      "repeat": 2,
+      "seconds": 51.46016677300213,
+      "exit_code": 0,
+      "command": [
+        "/home/nqpi/flow/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "2",
+        "--durations=15",
+        "--junitxml=/home/nqpi/flow/benchmarks/test-runtime/workers-2-run-2.xml"
+      ],
+      "tests": 104,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "workers": 4,
+      "repeat": 2,
+      "seconds": 51.84035703900736,
+      "exit_code": 0,
+      "command": [
+        "/home/nqpi/flow/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "4",
+        "--durations=15",
+        "--junitxml=/home/nqpi/flow/benchmarks/test-runtime/workers-4-run-2.xml"
+      ],
+      "tests": 104,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "workers": 0,
+      "repeat": 2,
+      "seconds": 94.00216477399226,
+      "exit_code": 0,
+      "command": [
+        "/home/nqpi/flow/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "0",
+        "--durations=15",
+        "--junitxml=/home/nqpi/flow/benchmarks/test-runtime/workers-0-run-2.xml"
+      ],
+      "tests": 104,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "workers": 4,
+      "repeat": 3,
+      "seconds": 52.360382147016935,
+      "exit_code": 0,
+      "command": [
+        "/home/nqpi/flow/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "4",
+        "--durations=15",
+        "--junitxml=/home/nqpi/flow/benchmarks/test-runtime/workers-4-run-3.xml"
+      ],
+      "tests": 104,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "workers": 0,
+      "repeat": 3,
+      "seconds": 92.13020167296054,
+      "exit_code": 0,
+      "command": [
+        "/home/nqpi/flow/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "0",
+        "--durations=15",
+        "--junitxml=/home/nqpi/flow/benchmarks/test-runtime/workers-0-run-3.xml"
+      ],
+      "tests": 104,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "workers": 2,
+      "repeat": 3,
+      "seconds": 52.939860487007536,
+      "exit_code": 0,
+      "command": [
+        "/home/nqpi/flow/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "2",
+        "--durations=15",
+        "--junitxml=/home/nqpi/flow/benchmarks/test-runtime/workers-2-run-3.xml"
+      ],
+      "tests": 104,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ]
+}

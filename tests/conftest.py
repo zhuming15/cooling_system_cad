@@ -29,3 +29,24 @@ def parts():
     import assembly as A
 
     return A.build()
+
+
+def pytest_collection_modifyitems(config, items):
+    """Start long geometry checks early, with a cheap next-item reservation.
+
+    xdist reserves the next item on each worker. Interleaving a fixture-free
+    test keeps two long checks from being queued on the same worker at startup.
+    The serial debug order remains unchanged.
+    """
+    if not (config.getoption("numprocesses", default=0) or hasattr(config, "workerinput")):
+        return
+    long = [item for item in items if item.get_closest_marker("long_geometry")]
+    remaining = [item for item in items if item not in long]
+    ordered = []
+    for item in long:
+        ordered.append(item)
+        spacer = next((test for test in remaining if "parts" not in test.fixturenames), None)
+        if spacer is not None:
+            remaining.remove(spacer)
+            ordered.append(spacer)
+    items[:] = ordered + remaining

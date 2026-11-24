@@ -659,10 +659,11 @@ def check_assembly_order(parts: dict[str, Solid], r: Report) -> None:
     r.start("11. Build, print, service and environment")
     # --- assembly order: every step moves into place without a collision ----------
     installed = [n for n in parts if n.startswith(("base_", "m4_nut", "wall_screw"))]
+    context = CK.GeometryQueries()
     clashes = []
     for label, prefixes in ASSEMBLY_ORDER:
         moving = [n for n in parts if n.startswith(prefixes)]
-        hits = sweep(parts, moving, installed)
+        hits = sweep(parts, moving, installed, first_failure=True, context=context)
         clashes += [
             f"{label}: {m}/{n} at {d:.4g} mm"
             + (" (motion not certified)" if (m, n) in hits.unresolved else "")
@@ -672,7 +673,18 @@ def check_assembly_order(parts: dict[str, Solid], r: Report) -> None:
     ends = []
     for name in ("tube_in", "tube_out"):
         out = 1 if parts[name].bounding_box().center().X > X_FM / 2 else -1
-        ends += [f"{m}/{n}" for (m, n) in sweep(parts, [name], installed, (-out, 0, 0), 40)]
+        ends += [
+            f"{m}/{n}"
+            for (m, n) in sweep(
+                parts,
+                [name],
+                installed,
+                (-out, 0, 0),
+                40,
+                first_failure=True,
+                context=context,
+            )
+        ]
     left = [n for n in parts if n not in installed and not n.startswith("tube_")]
     r.check(
         "assembly order is collision-free",
@@ -1170,7 +1182,7 @@ def check_electrical_interconnect(parts: dict[str, Solid], r: Report) -> None:
     )
     moving = [n for n in parts if n.startswith("electrical_")]
     fixed = [n for n in parts if n not in moving and n != "flowmeter_m12"]
-    hits = sweep(parts, moving, fixed, axis=(0, 0, -1), travel=M12_LIFT, step=2)
+    hits = sweep(parts, moving, fixed, axis=(0, 0, -1), travel=M12_LIFT, step=2, first_failure=True)
     r.check(
         "M12 plug insertion clear of station",
         not hits,
@@ -1226,6 +1238,7 @@ def access_probes(parts: dict[str, Solid]) -> list[tuple[str, Solid]]:
 def check_stack(parts: dict[str, Solid], r: Report) -> None:
     """What stacking adds: the set (as built) between copies of itself above and below."""
     r.start(f"13. Stack: {STACK_N} sets, {STACK_PITCH:.0f} mm apart, one plate")
+    context = CK.GeometryQueries()
     own = {n: s for n, s in parts.items() if not is_shared(n)}
     above = {f"above_{n}": Pos(0, 0, STACK_PITCH) * s for n, s in own.items()}
     below = {f"below_{n}": Pos(0, 0, -STACK_PITCH) * s for n, s in own.items()}
@@ -1235,7 +1248,7 @@ def check_stack(parts: dict[str, Solid], r: Report) -> None:
     hits = []
     for a, sa in own.items():
         for b, sb in above.items():
-            v = overlap(sa, sb)
+            v = overlap(sa, sb, context=context)
             if v > CK.VOLUME_TOL:
                 hits.append(f"{a}/{b} {v:.2f}mm3")
     r.check(
@@ -1253,10 +1266,10 @@ def check_stack(parts: dict[str, Solid], r: Report) -> None:
         if name in ("valve_clamp_base", "fm_clamp_base") and s.distance_to(plate) > 1e-3:
             off.append(n)
         if name.startswith(("dowel_", "m4_mount", "m4_nut", "wall_screw")):
-            v = overlap(s, plate)
+            v = overlap(s, plate, context=context)
             if v > CK.VOLUME_TOL:
                 into.append(f"{n} {v:.2f}mm3")
-    pz = plate.bounding_box()
+    pz = context.box(plate)
     r.check(
         "one station plate carries every set",
         len(plate.solids()) == 1 and not off and not into,
@@ -1268,15 +1281,28 @@ def check_stack(parts: dict[str, Solid], r: Report) -> None:
     # 3. the M12 elbow plugs and unplugs vertically, under the set above
     moving = [n for n in parts if n.startswith("electrical_")]
     stage = {n: parts[n] for n in moving} | above
-    m12 = sweep(stage, moving, list(above), axis=(0, 0, -1), travel=M12_LIFT, step=2)
-    elbow_top = max(parts[n].bounding_box().max.Z for n in moving) + M12_LIFT
-    ebb = [parts[n].bounding_box() for n in moving]
+    m12 = sweep(
+        stage,
+        moving,
+        list(above),
+        axis=(0, 0, -1),
+        travel=M12_LIFT,
+        step=2,
+        first_failure=True,
+        context=context,
+    )
+    elbow_top = max(context.box(parts[n]).max.Z for n in moving) + M12_LIFT
+    ebb = [context.box(parts[n]) for n in moving]
     column = C.box3d(  # the elbow's footprint, extended up and down
         (min(b.min.X for b in ebb), max(b.max.X for b in ebb)),
         (min(b.min.Y for b in ebb), max(b.max.Y for b in ebb)),
         (-1e4, 1e4),
     )
-    room = min((s & column).bounding_box().min.Z for s in above.values() if overlap(s, column) > 0)
+    room = min(
+        (s & column).bounding_box().min.Z
+        for s in above.values()
+        if overlap(s, column, context=context) > 0
+    )
     r.check(
         "M12 elbow plugs / unplugs under the set above",
         not m12,
@@ -1287,7 +1313,8 @@ def check_stack(parts: dict[str, Solid], r: Report) -> None:
     )
     # 4. every operator / tool envelope of the set stays clear of both neighbours
     blocked = [
-        f"{label}: {sorted(ray_clear(neighbours, probe))}" for label, probe in access_probes(parts)
+        f"{label}: {sorted(ray_clear(neighbours, probe, context=context))}"
+        for label, probe in access_probes(parts)
     ]
     blocked = [b for b in blocked if not b.endswith("[]")]
     r.check(
@@ -1303,11 +1330,11 @@ def check_stack(parts: dict[str, Solid], r: Report) -> None:
     for n, s in own.items():
         if n.startswith("wall_screw"):
             continue  # driven in place, never travels with the set
-        bb = s.bounding_box()
+        bb = context.box(s)
         path = C.box3d(
             (bb.min.X, bb.max.X), (bb.min.Y, bb.max.Y + SERVICE_TRAVEL), (bb.min.Z, bb.max.Z)
         )
-        blocked += [f"{n}/{h}" for h in ray_clear(neighbours, path)]
+        blocked += [f"{n}/{h}" for h in ray_clear(neighbours, path, context=context)]
     r.check(
         "each set fits and comes off the plate with neighbours in place",
         not blocked,

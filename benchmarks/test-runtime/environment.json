@@ -1,0 +1,39 @@
+{
+  "platform": "Linux-7.0.0-43-generic-x86_64-with-glibc2.39",
+  "logical_cpus": 20,
+  "cpu_affinity": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19
+  ],
+  "base_commit": "651edc566f729dbf1aa28fe13560e88cb5d89137",
+  "modified_file_sha256": {
+    "AGENTS.md": "10b930a669852c7f2a6222fe79346af2820cd70046490d92012f5acadb62dd4b",
+    "README.md": "b8dbd1670951480583861381df3b2e8289db535e94296bda8a69c9848e350b6e",
+    "assembly.py": "32b268c78c58c4c7234cb139012f7c8f45b71ad6bb1a5734e560dafddbbd92b6",
+    "pyproject.toml": "246bbdb5a2a4ee65b0e33db9463f1daa1ee845926d9b8c1ee86ebabcb53e89f6",
+    "tests/conftest.py": "2420e46671b5c4cd83e3319a0f328c4f66e4a1b2aa6b2e17d79df3b52efdab41",
+    "tests/test_assembly.py": "289d6a6533c167a6c717aa2c2a0625994529b93fb8c242b543c5919c00bf623c",
+    "tests/test_checks.py": "01883bf9f9cf8c7a6c9ee14787ad98b80964dfa8ae54f72181d4401d37b76ffa",
+    "tools/checks.py": "721788eabfb382ada5f498057713cd08df45b2f0f6a9b8c879939f7f02923f5f",
+    "uv.lock": "8384f5ee02c8db5657e53163369e7fe3665311cad3f5335484cdd1e4f6d2a2d9"
+  },
+  "method": "Sequential fresh pytest subprocesses; full suite, unchanged code during trials, OS caches warm; wall time includes startup and teardown. No external profiling during timed trials except one brief py-spy stack snapshot during serial trial 1."
+}
