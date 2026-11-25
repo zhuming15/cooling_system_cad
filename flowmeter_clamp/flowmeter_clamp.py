@@ -10,20 +10,14 @@ Concept
       clamp is not made to react thread torque.
     * MOUNTING POSITION (ifm manual 11592037, Fig. 1, recommended): horizontal
       pipe, housing and M12 connector ON TOP.
-    * ORIENTATION OF THE METER comes from the meter itself: the ROLL-STOP PAD,
-      a ledge of the clamp base, sits PAD_GAP under its downward 12 AF flat.
-      The two strap bores alone set the meter's height; a pad touching the flat
-      as well would over-constrain it (pad-vs-bore print error props the meter
-      and bends its plastic body and G1/2 threads when the straps are
-      tightened). The meter is set level by hand when the straps go on; the
-      pad stops it at ~ROLL_STOP deg if it is ever turned. Friction in the
-      straps holds the cable torque; no screw load passes through the pad.
+    * ORIENTATION OF THE METER: set level by hand when the straps go on.
+      Friction of the two straps on the round QSF bodies holds it against the
+      M12 cable torque (assembly check); there is no roll-stop pad (user,
+      2026-11-25: the straps stabilise the meter).
     * CLAMP BASE (printed PETG, one piece): two pedestals with lower half-bores
-      (dia 20.95), a lower bar joining them (so both bores print coaxial), a
-      second lower bar in front of it (box section) and the pad, both plain
-      full-length blocks down to the base's underside. In a stack they sit over
-      the M12 elbow of the set below, which sets the room left to unplug it
-      (assembly check). Concave joints are filleted (JOINT_FILLET).
+      (dia 20.95) and one lower bar joining them (so both bores print coaxial).
+      In a stack the base sits over the M12 elbow of the set below, which sets
+      the room left to unplug it (assembly check). Concave joints are filleted (JOINT_FILLET).
       Located on the station plate by 2 dowel pins in the bar and fixed
       by 1 x M4 per pedestal, from the front through the bottom of the half-bore
       into a captive nut in the plate: fit it BEFORE the meter, which then
@@ -49,8 +43,7 @@ Concept
       wall screws (wall_screw_xz), not a set of them per stacked set.
 
 Global frame: as valve_clamp/clamp.py (wall Y = 0, +Y to operator, Z up).
-The flowmeter axis is along X at (Y = FM_Y, Z = 0), centred on X = x_center;
-`inlet_sign` is the global X sign of the meter's inlet end (spanner flats).
+The flowmeter axis is along X at (Y = FM_Y, Z = 0), centred on X = x_center.
 """
 
 import sys
@@ -110,30 +103,15 @@ AXIAL_FLOAT = min(HEX_CLEAR, RING_Z - (ROUND_Z[0] + HEX_CLEAR + STRAP_W))  # +/-
 # round-body length under the strap, worst case over the float
 STRAP_CONTACT = min(STRAP_W, ROUND_Z[1] - (ROUND_Z[0] + HEX_CLEAR + AXIAL_FLOAT))  # 9.0
 
-# Roll-stop pad under the meter's downward spanner flat (meter-local X range): 0.4 mm
-# inside the flat's neck end, 1.0 mm clear of the QSF face (X_FACE) at the other end
-PAD_X = (FM.SPANNER_X[0] + 0.4, min(FM.SPANNER_X[1], X_FACE) - 1.0)  # 15.9 .. 21.5
-PAD_W = 10.5  # across the flat (Y), inside its 11.5
-PAD_GAP = 0.5  # pad top below the flat: > pad-vs-bore print error (2 x PRINT_TOL), so
-# the pad never props the meter; the bores alone set its height
-PAD_CHAMFER = 0.8  # lead-in on the pad's front top edge (no edge contact on the flat)
-ROLL_STOP_MAX = 8.0  # deg, ESTIMATE: meter roll the pad must stop (M12 / housing angle
-# is not critical)
 
 # --- Envelope ----------------------------------------------------------------
 PED_H = 46.0  # pedestal / strap height along Z
 CAP_TOP_WALL = 6.0
 BAR_Z = (-PED_H / 2, -10.0)  # lower bar joining the pedestals, below the pipe (Z >= -6)
 BAR_T = 6.0  # along Y, from the plate; clear of the hexes (corners reach Y 16.1)
-# Second lower bar, in front of the first up to the strap split: box section, carries
-# the pad. Top 1.6 mm under the QSF hex corners at any phase (r 13.86 -> Z -13.86).
-BAR2_Z = (BAR_Z[0], -15.5)
 PED_CHAMFER = 1.0  # pedestal / strap front edges
-JOINT_FILLET = 2.0  # concave structural joints (pedestals, bars, pad root)
-JOINT_FILLET_TIGHT = 0.8  # joints on the pad's QSF side (1 mm to the QSF face)
+JOINT_FILLET = 2.0  # concave structural joints (pedestals to bar)
 PLATE_T = C.PLATE_T  # 12, the one station plate
-# bar 2 front: a fillet short of the pedestals' front chamfers (room for the r2 corner)
-BAR2_Y = (PLATE_T + BAR_T, AXIS_Y - SPLIT_GAP / 2 - PED_CHAMFER - JOINT_FILLET)
 PLATE_H = C.PLATE_H  # 92
 PLATE_L = 2 * (STRAP_X + STRAP_W / 2 + 3.5)  # station-plate length around the meter
 WALL_SCREW_X = 36.0  # between housing (+/-24.1) and straps (>= 41.5): hex-key path
@@ -141,9 +119,10 @@ WALL_SCREW_Z = C.WALL_SCREW_Z  # 37 - clear of the flowmeter housing (Z +/-15.1)
 
 # --- Fasteners ---------------------------------------------------------------------
 M4_Z = 15.5  # strap screws (x, +/-M4_Z) into inserts
-DOWEL_DX = 40.0  # dowels in the bar at x_center +/- 40, clear of the pad
+DOWEL_DX = 34.0  # dowels in the bar at x_center +/- 34: clean through-holes in the 6 mm
+# bar, clear of the pedestal fillets (pedestal inner faces at +/- 41.5)
 DOWEL_WALL = 1.5  # PETG under the dowel hole (>= 3 perimeters, 1.2)
-DOWEL_Z = BAR_Z[0] + DOWEL_WALL + C.DOWEL_D / 2  # -19.5: hole wholly below bar 2's top
+DOWEL_Z = BAR_Z[0] + DOWEL_WALL + C.DOWEL_D / 2  # -19.5
 
 # Derived Y stations
 Y_SPLIT_BASE = AXIS_Y - SPLIT_GAP / 2
@@ -153,8 +132,6 @@ Y_BORE_BOTTOM = AXIS_Y - POCKET_D / 2
 FM_Y = AXIS_Y - POCKET_D / 2 + BODY_D / 2  # clamped fitting/meter axis
 CAP_DROP = (AXIS_Y + POCKET_D / 2) - (FM_Y + BODY_D / 2)  # 0.15
 CLAMP_PRELOAD_TRAVEL = SPLIT_GAP - CAP_DROP
-FLAT_Z = -FM.SPANNER_AF / 2  # the meter's downward flat
-PAD_TOP_Z = FLAT_Z - PAD_GAP
 CAP_SEAT = Y_CAP_TOP + C.WASHER[2] - CAP_DROP  # washer on top: no counterbore in a 12 mm strap
 CAP_SCREW_LEN = C.cap_screw_length(CAP_SEAT, Y_SPLIT_BASE)
 MOUNT_SEAT, MOUNT_LEN = C.mount_screw(Y_BORE_BOTTOM)
@@ -185,20 +162,6 @@ def _bore(xc: float) -> Solid:
     )
 
 
-def pad_xs(x_center: float, inlet_sign: int) -> tuple[float, float]:
-    return tuple(sorted(x_center + inlet_sign * x for x in PAD_X))
-
-
-def pad_box(x_center: float, inlet_sign: int) -> Solid:
-    """The roll-stop pad: one block from the base underside to PAD_GAP under the flat."""
-    pad = C.box3d(
-        pad_xs(x_center, inlet_sign), (PLATE_T, FM_Y + PAD_W / 2), (BAR2_Z[0], PAD_TOP_Z)
-    )
-    # front top edge only: the flat's edge lands there; the back edge is on the print bed
-    edge = pad.edges().filter_by(Axis.X).group_by(Axis.Z)[-1].group_by(Axis.Y)[-1]
-    return chamfer(edge, PAD_CHAMFER)
-
-
 def _concave_edges(part: Solid) -> list:
     """Straight edges where two perpendicular planar faces meet inside a corner."""
     faces_of: dict = {}
@@ -222,34 +185,16 @@ def _concave_edges(part: Solid) -> list:
     return out
 
 
-def _fillet_joints(base: Solid, x_center: float, inlet_sign: int) -> Solid:
-    """Fillet the concave structural joints; a tighter radius on the pad's
-    fitting-side face, 1 mm from the QSF."""
-    qsf_x = max(pad_xs(x_center, inlet_sign), key=lambda x: abs(x - x_center))
-    big, tight = [], []
-    for e in _concave_edges(base):
-        (tight if abs(e.center().X - qsf_x) < 1e-3 else big).append(e)
-    if not big:
+def _fillet_joints(base: Solid) -> Solid:
+    """Fillet the concave structural joints (pedestals to bar)."""
+    edges = _concave_edges(base)
+    if not edges:
         raise ValueError("no concave joints found to fillet")
-    base = fillet(big, JOINT_FILLET)
-    # the first fillets may trim the tight edges' ends: find them again on their lines
-    tight_edges = [e for e in _concave_edges(base) if any(_on_edge_line(e, t) for t in tight)]
-    return fillet(tight_edges, JOINT_FILLET_TIGHT) if tight_edges else base
+    return fillet(edges, JOINT_FILLET)
 
 
-def _on_edge_line(e, ref) -> bool:
-    """`e` lies on the line of straight edge `ref`, inside ref's extent."""
-    d0 = (ref.end_point() - ref.start_point()).normalized()
-    d1 = (e.end_point() - e.start_point()).normalized()
-    if abs(abs(d0.dot(d1)) - 1) > 1e-6:
-        return False
-    off = e.center() - ref.start_point()
-    along = off.dot(d0)
-    return (off - d0 * along).length < 1e-3 and -1e-3 <= along <= ref.length + 1e-3
-
-
-def make_base(x_center: float, inlet_sign: int) -> Solid:
-    """Printed clamp base: 2 pedestals, 2 lower bars and the roll-stop pad, on the
+def make_base(x_center: float) -> Solid:
+    """Printed clamp base: 2 pedestals and the lower bar, on the
     station plate at Y = PLATE_T."""
     xs = strap_xs(x_center)
     base = None
@@ -261,9 +206,7 @@ def make_base(x_center: float, inlet_sign: int) -> Solid:
     base = chamfer(base.edges().filter_by(Axis.X).group_by(Axis.Y)[-1], PED_CHAMFER)
     x0, x1 = xs[0] - STRAP_W / 2, xs[1] + STRAP_W / 2
     base += C.box3d((x0, x1), (PLATE_T, PLATE_T + BAR_T), BAR_Z)
-    base += C.box3d((xs[0] + STRAP_W / 2, xs[1] - STRAP_W / 2), BAR2_Y, BAR2_Z)  # bar 2
-    base += pad_box(x_center, inlet_sign)
-    base = _fillet_joints(base, x_center, inlet_sign)
+    base = _fillet_joints(base)
     for xc in xs:
         base -= _bore(xc)
     return C.base_holes(
@@ -391,10 +334,10 @@ if __name__ == "__main__":
     here = Path(__file__).parent
     import assembly as A
 
-    xc, inlet = A.X_FM, -A.FLOW_DIR
+    xc = A.X_FM
     C.export_layers(plate_layers(xc, A.stack_zs()), here / "base_plate.dxf")
     parts = make_station_base(xc, A.stack_zs()) | {
-        "sv3051_clamp_base": make_base(xc, inlet),
+        "sv3051_clamp_base": make_base(xc),
         "sv3051_clamp_strap": make_cap_unclamped(STRAP_X),
     }
     for n, p in parts.items():

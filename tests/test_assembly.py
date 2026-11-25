@@ -260,40 +260,26 @@ def test_plate_check_rejects_a_second_layer_and_a_stray_pocket(parts):
     assert "station plate: one plate, through-cuts + pockets" in failed_names(A.check_modules, bad)
 
 
-@pytest.mark.slow
-def _base_with(monkeypatch, parts, **consts):
-    for name, value in consts.items():
-        monkeypatch.setattr(A.FCL, name, value)
-    return dict(parts) | {"fm_clamp_base": A.FCL.make_base(A.X_FM, -A.FLOW_DIR)}
-
-
-def test_pad_check_rejects_a_pad_touching_the_flat(parts, monkeypatch):
-    # the old zero-gap pad: with the bores it sets the meter's height twice
-    bad = _base_with(monkeypatch, parts, PAD_TOP_Z=A.FCL.FLAT_Z)
-    names = failed_names(A.check_flowmeter_clamp, bad)
-    assert "pad clear of the meter flat (bores alone set its height)" in names
-
-
-def test_pad_check_rejects_a_pad_too_low_to_stop_roll(parts, monkeypatch):
-    # 1.5 mm under the flat: the flat's edge (5.75 off the axis) needs > 8 deg to reach it
-    bad = _base_with(monkeypatch, parts, PAD_TOP_Z=A.FCL.FLAT_Z - 1.5)
-    names = failed_names(A.check_flowmeter_clamp, bad)
-    assert "pad stops the meter's roll both ways" in names
-    assert "pad clear of the meter flat (bores alone set its height)" not in names
+def test_clamp_plastic_check_rejects_a_base_touching_the_meter(parts):
+    pipe = parts["flowmeter_pipe"].bounding_box().center()
+    # under the meter's pipe (12 AF / r 6 section, bottom at Z -6), 0.5 mm into it
+    lump = Pos(pipe.X, pipe.Y, -A.FM.SPANNER_AF / 2) * Box(4, 4, 1)
+    bad = dict(parts, fm_clamp_base=parts["fm_clamp_base"] + lump)
+    assert "meter clear of the clamp plastic" in failed_names(A.check_flowmeter_clamp, bad)
 
 
 def test_stack_finger_room_catches_a_pitch_that_still_clears(parts, monkeypatch):
-    # 138: the lifted elbow still clears the set above (1.4 mm), but not by M12_ROOM_MIN
-    monkeypatch.setattr(A, "STACK_PITCH", 138.0)
+    # 121: the lifted elbow still clears the set above (1.4 mm), but not by M12_ROOM_MIN
+    monkeypatch.setattr(A, "STACK_PITCH", 121.0)
     names = failed_names(A.check_stack, parts)
     assert "finger room over the lifted M12 elbow" in names
     assert "M12 elbow plugs / unplugs under the set above" not in names
 
 
 def test_stack_catches_a_short_pitch(parts, monkeypatch):
-    monkeypatch.setattr(A, "STACK_PITCH", 120.0)  # elbow can't be lifted off its socket
+    monkeypatch.setattr(A, "STACK_PITCH", 110.0)  # elbow can't be lifted off its socket
     assert "M12 elbow plugs / unplugs under the set above" in failed_names(A.check_stack, parts)
-    monkeypatch.setattr(A, "STACK_PITCH", 80.0)  # elbow runs into the meter above
+    monkeypatch.setattr(A, "STACK_PITCH", 70.0)  # elbow runs into the meter above
     names = failed_names(A.check_stack, parts)
     # the plate was cut for 140: the neighbours' dowels and screws miss its holes
     assert {"stacked sets don't collide", "one station plate carries every set"} <= names

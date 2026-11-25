@@ -68,7 +68,7 @@ except the station plate and its 6 M6 wall screws: those are for the whole stack
 | Station plate | 1 for the stack | CNC-routed 12 mm cast acrylic, 300 × 372 mm: through-cuts plus two 6 mm pocket features | `flowmeter_clamp/base_plate.dxf` |
 | Valve clamp base | 1 | FDM print, PETG | `output/step/06_valve_clamp_base.step` |
 | Valve clamp cap | 1 | FDM print, PETG | `output/step/07_valve_clamp_cap.step` |
-| Flowmeter clamp base (both pedestals, two lower bars and the roll-stop pad, one piece) | 1 | FDM print, PETG | `output/step/08_flowmeter_clamp_base.step` |
+| Flowmeter clamp base (both pedestals and the lower bar, one piece) | 1 | FDM print, PETG | `output/step/08_flowmeter_clamp_base.step` |
 | Flowmeter strap | 2 | FDM print, PETG | `output/step/09_flowmeter_clamp_strap.step` |
 
 ### Hardware
@@ -159,9 +159,8 @@ except the station plate and its 6 M6 wall screws: those are for the whole stack
    housing and M12 connector on top and the valve knob facing out.
    - The fitting hexes can sit at any angle; the straps grip the round body
      next to the hex.
-   - The meter's lower 12 mm flat sits 0.5 mm above the roll-stop pad of
-     its clamp base. Hold the meter level (housing straight up) while you
-     tighten the straps; the pad only catches it if it turns about 5°.
+   - Hold the meter level (housing straight up) while you tighten the
+     straps; strap friction alone keeps it there (there is no roll-stop pad).
 5. Fit the valve cap with 4 × M4 × 20 and washers, and the two straps with
    M4 × 30 and washers. Tighten the valve cap to **0.5 N·m** and flowmeter
    straps to **0.55 N·m**. Re-check after 24 h.
@@ -183,11 +182,10 @@ tests need the real parts, in this order:
 | 6 | Clamp gap | Feeler gauge at the split faces of the cap and both straps after tightening | Gap still open at all four corners (model: 0.85 mm) |
 | 7 | Leak | Fill with water, 6 bar, hold 30 min | No pressure drop, no weep at the threads or tubes |
 | 8 | Torque retention | Re-check all M4 after 24 h and after 1 week | Less than about 30 % loss; otherwise add wave washers |
-| 9 | Pull and twist | 500 N axial pull on the outlet tube; 50 N sideways on the M12 cable | Nothing moves; the meter stays level, clear of its pad |
+| 9 | Pull and twist | 500 N axial pull on the outlet tube; 50 N sideways on the M12 cable | Nothing moves; the meter stays level |
 | 10 | Valve use | Open and close the valve fully 20 times | The valve doesn't turn or shift in its clamp |
 | 11 | Thermal | Run with water at 5 °C and at 40 °C, an hour each | No leaks, no visible tube bow, clamps still tight |
 | 12 | Alignment | With the straps loose, sight along the link tube, then tighten | No visible bend, and the meter doesn't jump (model worst case 1.24 mm offset) |
-| 13 | Pad gap | Straps tightened: feeler gauge between the meter's lower flat and the roll-stop pad | A 0.3 mm feeler slides through (model 0.5 mm). If the pad touches, the pad-to-bore print error is above the 0.4 mm estimate: raise `PAD_GAP` and reprint |
 
 ## How the design works
 
@@ -216,20 +214,13 @@ tests need the real parts, in this order:
     How far a fitting turns when it is tightened decides where its hex ends
     up, so the hex angle can't be controlled. A check spins each fitting
     through a full hex pitch to prove any angle fits.
-  - The two strap bores alone set the meter's height. The roll-stop pad
-    under its lower 12 mm flat sits 0.5 mm below it, more than the 0.4 mm
-    the pad and the bores can be out relative to each other when printed.
-    A pad touching the flat as well would set the height twice: a pad
-    printed high would prop the meter up and bend its plastic body and
-    threads as the straps are tightened.
+  - The two strap bores alone set the meter's height.
   - The meter's angle is set by hand when the straps go on, and strap
-    friction holds it (×5 against a 50 N cable pull). If the meter is ever
-    turned, its flat lands on the pad at about 5°.
-  - The base has a second lower bar in front of the first, which closes it
-    into a box section; the bar and the pad are plain full-length blocks down
-    to the base's underside, and the concave joints are filleted. In a stack
-    they sit over the M12 elbow of the set below: lifted to unplug, the elbow
-    has 3.4 mm to the set above, so grip the connector from the side.
+    friction holds it (×5 against a 50 N cable pull). There is no roll-stop
+    pad (removed 2026-11-25: the straps stabilise the meter).
+  - The base is two pedestals joined by one lower bar against the plate;
+    the concave joints are filleted and the two dowels go through the bar.
+    In a stack, the lifted M12 elbow has 20.4 mm to the set above.
   - All clamp load goes through the brass fittings, so tube loads never pass
     through the meter's plastic threads.
   - The QSF fittings are tightened on the bench, with the meter held by its
@@ -259,12 +250,6 @@ These pass, but with little room. Re-check them after any change nearby:
 - Elbow cable pull: ×5.11 holding margin against the required ×5 at 50 N.
   Straps need 0.55 N·m: 0.5 fails that margin; 0.6 overloads the PETG washer seat.
   Friction, torque-to-preload and plastic allowables remain engineering estimates.
-- Stack pitch 140 mm: lifted 40 mm to unplug, the M12 elbow is 3.4 mm
-  below the set above (136.6 mm is the minimum pitch; a check requires
-  3.0 mm). The full-length second bar and pad of the flowmeter base set this;
-  a base notched under the elbow gave 12.4 mm.
-- Roll-stop pad gap 0.5 mm against an estimated 0.4 mm pad-to-bore print
-  error (2 × ±0.2). Confirm with real-part test 13.
 - Flowmeter strap axial float: ±1.0 mm against a ±1.0 mm minimum. The
   real QSF round body is only 11 mm long (caliper), shorter than the 12 mm
   strap; the strap sits 1 mm off the hex cone and overhangs the collar

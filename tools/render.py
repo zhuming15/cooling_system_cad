@@ -197,7 +197,7 @@ def render_components(path: Path) -> None:
         ("Flowmeter with QSF fittings and A-coded M12 elbow", fitted, (25, -60), (0, -90), None),
         (
             "Flowmeter clamp base + 2 straps (3D printed PETG), dowels, inserts, M4",
-            [(FCL.make_base(A.X_FM, -A.FLOW_DIR), COLORS["fm_clamp"])]
+            [(FCL.make_base(A.X_FM), COLORS["fm_clamp"])]
             + [(s, COLORS["fm_clamp"]) for s in FCL.make_caps(A.X_FM)]
             + [
                 (s, color_of(f"m4_{k}" if k != "dowel" else "dowel"))

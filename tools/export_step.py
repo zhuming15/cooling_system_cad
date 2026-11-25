@@ -195,7 +195,7 @@ def components(parts: dict[str, Solid]) -> list[tuple[str, str, object, str, str
         (
             "flowmeter_clamp_base",
             "Flowmeter clamp base, 2 pedestals + pad (PETG, printed)",
-            _to_origin(FCL.make_base(A.X_FM, -A.FLOW_DIR)),
+            _to_origin(FCL.make_base(A.X_FM)),
             "3D-printed",
             placed,
         ),

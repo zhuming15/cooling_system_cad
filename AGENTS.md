@@ -22,7 +22,7 @@ Three identical sets are stacked on the wall (`assembly.STACK_N`,
   tolerances and plastic allowables, M4 / insert / dowel hardware,
   `make_hardware()`, `base_holes()`, `cap_holes()`.
 - `flowmeter_clamp/flowmeter_clamp.py`: the flowmeter clamp module (one
-  printed base with both pedestals, two lower bars and the roll-stop pad;
+  printed base with both pedestals and one lower bar, no roll-stop pad;
   two straps that grip the round Ø20.8 QSF bodies, never the hexes) and
   `make_station_base()`: the station plate (`base_plate`). It is ONE 12 mm
   acrylic plate with through-cuts plus two 6 mm pocket features: M4 nut hex
@@ -146,9 +146,8 @@ Don't treat that as a code bug; the user has to start the viewer with
   - flowmeter: flow along −X (inlet at +X), housing and M12 connector on +Z.
     It is placed with local +Z = global +Z: horizontal pipe, housing on top,
     which is the user's choice and ifm's recommended position (Fig. 1). The
-    roll-stop pad is a block that stops `PAD_GAP` (0.5) under its downward 12 AF flat:
-    the strap bores alone set the meter's height, so never make the pad
-    touch the flat (that over-constrains the meter's plastic body);
+    strap bores alone set its height and strap friction holds its angle;
+    the user removed the roll-stop pad and second bar (2026-11-25);
   - QSF fitting: axis +Z, female port face at Z = 0.
 - **Flow direction.** System flow is `assembly.FLOW_DIR` (−X), which is left
   to right as the operator sees it; the operator faces the wall, so +X is
@@ -166,7 +165,7 @@ Don't treat that as a code bug; the user has to start the viewer with
 - **Never clamp or locate on a screwed-on fitting's hex.** Where a hex ends
   up depends on how tight the thread is, so its angle can't be controlled.
   Clamp on round features, and take the angle from a feature fixed to the
-  body (for the flowmeter, its spanner flat over the roll-stop pad).
+  body.
   `assembly.phase_sweep()` spins every fitting through 60° and must stay
   clash-free.
 - **Link-tube alignment is a hard requirement** from the user: no offset, no
@@ -262,11 +261,6 @@ Some checks pass with little room. A change that touches these needs care,
 and the README "Tight margins" list must stay current:
 
 - Worst-case link-tube strain: 0.45 % against `TUBE_STRAIN_MAX` 0.5 %.
-- `STACK_PITCH` 140: 3.4 mm above the lifted M12 elbow (minimum 136.6;
-  `M12_ROOM_MIN` 3.0). The flowmeter base's full-length second bar and pad
-  (bottom Z −23) set the room; the user chose them over a notch (12.4 mm).
-- Roll-stop pad gap `FCL.PAD_GAP` 0.5 mm against 2 × `PRINT_TOL` (0.4)
-  pad-to-bore print error; it stops the meter's roll at 5.3° (limit 8°).
 - Valve clamp base tipping under a 500 N pull: × 1.17.
 - Clamp-base M4 torque `MOUNT_TORQUE` 0.2 N·m: 0.15 N·m lets the valve base
   tip, 0.3 N·m overloads the acrylic under the nut.
