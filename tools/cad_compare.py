@@ -349,7 +349,7 @@ def presets() -> dict[str, dict]:
     h, x_sh = FM.L_TOTAL / 2, FM.L_TOTAL / 2 - FM.THREAD_L  # meter end face, shoulder
     r_bore, af = FM.END_BORE_D / 2, FM.SPANNER_AF / 2
     # QSF round body between hex and release ring, in the fitting frame (Z = L - v)
-    round_z = (FC.L_TOTAL - FC.BODY_PROFILE[-1][1], FC.L_TOTAL - FC.BODY_PROFILE[2][1])
+    round_z = (FC.L_TOTAL - FC.ROUND_V[1], FC.L_TOTAL - FC.ROUND_V[0])
     return {
         "valve_connector": {
             "title": "SMC KQ2H12-U02A",

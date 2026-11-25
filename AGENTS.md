@@ -41,9 +41,11 @@ Three identical sets are stacked on the wall (`assembly.STACK_N`,
   confirmed there is none). Which seal the end-face groove takes is still
   open (README "Verification status").
 - `flowmeter_connector/flowmeter_connector.py`: Festo QSF-1/2-12-B, a G1/2
-  female push-in fitting. Dimensions come from the Festo catalogue and are
-  checked against the RS-website 3D model (fit-critical within 0.003 mm,
-  envelope 0.01 mm).
+  female push-in fitting. The user's caliper measurements of the real part
+  override the RS-website 3D model (hex 18 not 21, round body 11 not 15.3,
+  length 40, port floor 17 deep), so its `cad_compare` no longer matches.
+  The QSF is placed by its real stop: the meter end face bottoms (through
+  the `WASHER_T` washer) on the port floor; the meter has no shoulder.
 - `flowmeter_electronic_interconnect/flowmeter_electronic_interconnect.py`: Amphenol
   LTW MSAP-04BFFC-SR7001 A-coded M12 elbow, fitted to the SV3051. OEM CAD
   comparison passes (fit < 0.001 mm, exterior 0.414 mm). User confirmed the
@@ -272,6 +274,9 @@ and the README "Tight margins" list must stay current:
   67.12 mm cable lever: ×5.11 margin against ×5 at 50 N. Valve cap stays
   at 0.5 N·m. At 0.5 the strap pull margin fails; 0.6 overloads PETG.
 - Strap washer on PETG 14.0 / 15 MPa (valve washer 12.7); nut on acrylic 9.4 / 10 MPa.
+- Flowmeter strap float `FCL.AXIAL_FLOAT` ±1.0 against ±1.0: 12 mm straps
+  `FCL.HEX_CLEAR` off the QSF hex cone, overhanging the collar (estimated
+  Ø19.3, inside the bore) because the real round body is only 11 mm.
 - Wall screws: 6 × M6 for the whole stack (`FCL.wall_screw_xz`), 88 / 100 N per
   screw; they are `SHARED` (the plate's), not per set.
 

@@ -993,10 +993,28 @@ def check_flowmeter_clamp(parts: dict[str, Solid], r: Report) -> None:
         seat < 1e-3 and strap < 1e-3,
         f"body-base {seat:.4f} mm, body-strap {strap:.4f} mm",
     )
+    # The QSF is stopped by the meter's end face on its port floor (through the washer),
+    # not by a shoulder: the meter's hex passes inside the thread. Probe it.
+    meter = parts["flowmeter_pipe"]
+    m_x = meter.bounding_box().center().X
+    stops = []
+    for s in ("in", "out"):
+        body = parts[f"qsf_body_{s}"]
+        inward = -1 if body.bounding_box().center().X > m_x else 1
+        short = CK.overlap(Pos(inward * (FC.WASHER_T - 0.05), 0, 0) * body, meter)
+        home = CK.overlap(Pos(inward * (FC.WASHER_T + 0.05), 0, 0) * body, meter)
+        stops.append(short < 1e-4 < home)
+    r.check(
+        "QSF stops on the meter end face (washer), not short of it",
+        all(stops),
+        f"port floor {FC.THREAD_DEPTH:.1f} deep, {FC.WASHER_T:.1f} mm washer gap to the meter "
+        f"end face; port faces {2 * FCL.X_FACE:.1f} apart (caliper 45)",
+    )
     r.check(
         "strap sits on the round section only",
         FCL.AXIAL_FLOAT >= 1.0,
-        f"{FCL.STRAP_W:.0f} mm strap on {FCL.ROUND_LEN:.1f} mm of dia {FCL.BODY_D} "
+        f"{FCL.STRAP_W:.0f} mm strap, {FCL.HEX_CLEAR:.1f} off the hex cone, on the "
+        f"{FCL.ROUND_LEN:.1f} mm dia {FCL.BODY_D} body (collar outboard is inside the bore) "
         f"-> +/-{FCL.AXIAL_FLOAT:.2f} mm before hex cone / release ring",
     )
     phase_hits, worst_seat = phase_sweep(parts)
@@ -1094,11 +1112,11 @@ def check_flowmeter_holding(parts: dict[str, Solid], r: Report) -> None:
         f"{t_hold:.2f} N.m (x{t_hold / t_cable:.2f}), "
         f"plus the roll-stop pad under the spanner flat (catches it within {FCL.ROLL_STOP_MAX:.0f} deg)",
     )
-    p_contact = f_strap / (FCL.BODY_D * FCL.STRAP_W)
+    p_contact = f_strap / (FCL.BODY_D * FCL.STRAP_CONTACT)
     r.check(
         "bore pressure on the printed part < PETG allowable",
         p_contact < C.PRINT_P_ALLOW,
-        f"{p_contact:.1f} MPa projected on dia {FCL.BODY_D} x {FCL.STRAP_W:.0f} "
+        f"{p_contact:.1f} MPa projected on dia {FCL.BODY_D} x {FCL.STRAP_CONTACT:.0f} "
         f"(< {C.PRINT_P_ALLOW:.0f})",
     )
 

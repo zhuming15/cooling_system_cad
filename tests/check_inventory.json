@@ -310,5 +310,9 @@
   "STATION-078": {
     "section": "check_stack",
     "name": "finger room over the lifted M12 elbow"
+  },
+  "STATION-079": {
+    "section": "check_flowmeter_clamp",
+    "name": "QSF stops on the meter end face (washer), not short of it"
   }
 }

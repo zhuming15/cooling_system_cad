@@ -191,6 +191,18 @@ def test_excessive_strap_torque_overloads_petg(parts, monkeypatch):
     assert "screw bearing on PETG / acrylic < allowable" in failed_names(A.check_modules, parts)
 
 
+@pytest.mark.parametrize("shift", (-1.0, 1.0))
+def test_qsf_stop_check_rejects_a_misplaced_fitting(parts, shift):
+    # shift > 0: off the meter (floating, no stop); shift < 0: screwed into the meter
+    bad = dict(parts)
+    bb = parts["flowmeter_pipe"].bounding_box().center().X
+    out = 1 if parts["qsf_body_in"].bounding_box().center().X > bb else -1
+    bad["qsf_body_in"] = Pos(out * shift, 0, 0) * parts["qsf_body_in"]
+    assert "QSF stops on the meter end face (washer), not short of it" in failed_names(
+        A.check_flowmeter_clamp, bad
+    )
+
+
 def test_hex_angle_check_rejects_obstruction(parts):
     bad = dict(parts)
     bb = parts["qsf_body_in"].bounding_box()

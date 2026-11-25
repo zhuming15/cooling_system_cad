@@ -13,7 +13,15 @@ Sources
   2. Manufacturer 3D model served on the RS product page (TraceParts viewer,
      product 90-14062024-034676). The profile below follows that model.
      It is 40.8 long (release ring in its outer position) vs. catalogue L1
-     40.1 - the model's 40.8 is used as the envelope.
+     40.1.
+  3. USER CALIPER MEASUREMENTS of the real fitting (2026-11-25), which take
+     precedence over source 2 where they differ (+/-0.5 mm, calipers):
+        overall 40 | port face -> hex end (incl. chamfer cone) 18 |
+        round dia 20.8 section 11 | release-ring end zone 11 |
+        screwed on the SV3051 with a flat G1/2 washer: port faces 45 apart
+        (meter end face 16 mm inside the port).
+     The RS/TraceParts model has hex 21 / round 15.3 / ring zone 4.5, so
+     tools/cad_compare.py flowmeter_connector no longer matches it.
 
 Local frame: fitting axis = Z, female port face (hex end, the face that
 meets the flowmeter) at Z = 0, thread cavity toward +Z, tube enters at the
@@ -43,13 +51,20 @@ HEX_AC = HEX_AF / 0.8660254  # 27.71
 BODY_D = 20.8  # D5
 THREAD_MAJOR_D = 20.955  # G1/2 (cosmetic female thread: modelled at major)
 THREAD_MINOR_D = 18.631
-THREAD_DEPTH = 14.0  # L2
+WASHER_T = 1.0  # ESTIMATE: flat G1/2 sealing washer between meter end face and port floor
+# Port face -> thread floor. Catalogue L2 is 14 (usable thread); the real port is
+# deeper: the meter end face sits 16 inside it (caliper, port faces 45 apart on a
+# 77 meter) on a WASHER_T washer.
+THREAD_DEPTH = 16.0 + WASHER_T
 TUBE_OD = 12.0
 TUBE_INSERT = 23.3  # Festo datasheet 190653 (2026); 2016 catalogue says 23.2
 
-# --- Vendor-model stations (v from release-ring end) -----------------------
-L_TOTAL = 40.8
-RING_PROFILE = [  # (r, v) outer profile of the release ring
+# --- Profile stations (v from release-ring end) ---------------------------
+# Caliper: L 40, ring end zone 0..11, round 11..22, hex (with its chamfer cone) 22..40.
+# Shapes (ring lips, shoulder ramp, hex cone and end chamfer) keep the RS/TraceParts
+# model's form, moved to the caliper stations.
+L_TOTAL = 40.0
+RING_PROFILE = [  # (r, v) outer profile of the release ring (RS model)
     (7.00, 0.00),
     (9.90, 0.50),
     (9.90, 1.50),
@@ -63,21 +78,25 @@ RING_PROFILE = [  # (r, v) outer profile of the release ring
 RING_END_V = 3.50  # ring / body split
 RING_ID = 14.0  # release ring bore; the metal collet sleeve
 # (dia 14 / dia 12) sits inside it, flush at v = 0
+ROUND_V = (11.0, 22.0)  # round dia 20.8 section (caliper E = 11, D = 40 - 22 = 18)
+COLLAR_R = 9.65  # ESTIMATE: collar between ring and round body, RS-model shoulder radius
 BODY_PROFILE = [  # (r, v) body outer profile up to the hex
-    (9.65, 3.50),
-    (9.96, 4.34),
-    (10.40, 4.50),
-    (10.40, 19.80),
+    (COLLAR_R, RING_END_V),
+    (COLLAR_R, ROUND_V[0] - 1.0),
+    (9.96, ROUND_V[0] - 0.16),  # RS-model shoulder ramp
+    (BODY_D / 2, ROUND_V[0]),
+    (BODY_D / 2, ROUND_V[1]),
 ]
+HEX_CONE_L = 3.47  # RS model: round -> full hex corners
 HEX_ENVELOPE = [  # chamfered-corner envelope of the hex
-    (10.40, 19.80),
-    (HEX_AC / 2 + 0.01, 23.27),
-    (HEX_AC / 2 + 0.01, 40.30),
-    (12.49, 40.67),
+    (BODY_D / 2, ROUND_V[1]),
+    (HEX_AC / 2 + 0.01, ROUND_V[1] + HEX_CONE_L),
+    (HEX_AC / 2 + 0.01, L_TOTAL - 0.50),
+    (12.49, L_TOTAL - 0.13),
     (12.00, L_TOTAL),
 ]
 TUBE_BORE_V = 23.30  # dia 12 tube bore depth (vendor model) = insertion depth
-CONE_TOP = (7.27, L_TOTAL - THREAD_DEPTH)  # (r, v) thread floor inner edge, v = 26.8
+CONE_TOP = (7.27, L_TOTAL - THREAD_DEPTH)  # (r, v) thread floor inner edge, v = 23.0
 
 
 def _revolve_rz(pts: list[tuple[float, float]]) -> Solid:
@@ -96,6 +115,9 @@ def _to_local(s: Solid) -> Solid:
 
 def _bores() -> Solid:
     tube = _v_cyl(TUBE_OD + 0.02, -1, TUBE_BORE_V)
+    thread = _v_cyl(THREAD_MAJOR_D, CONE_TOP[1], L_TOTAL + 1)
+    if CONE_TOP[1] <= TUBE_BORE_V:  # the deep real port: tube bore opens into the thread
+        return tube + thread
     cone = _revolve_rz(
         [
             (0, TUBE_BORE_V),
@@ -104,7 +126,6 @@ def _bores() -> Solid:
             (0, CONE_TOP[1]),
         ]
     )
-    thread = _v_cyl(THREAD_MAJOR_D, CONE_TOP[1], L_TOTAL + 1)
     return tube + cone + thread
 
 

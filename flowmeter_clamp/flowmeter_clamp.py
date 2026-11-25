@@ -32,7 +32,8 @@ Concept
       washers each (on the strap face: a counterbore would leave 1.25 mm walls
       in a 12 mm strap) into heat-set inserts in the pedestals. Split-gap preload:
       the half-bores are 1.0 mm short of closing.
-    * Straps are 12 mm wide on a 15.3 mm round section: +/-1.65 mm axial float.
+    * Straps are 12 mm wide on the 11 mm round section (caliper): 1 mm off the hex cone,
+      overhanging the smaller collar outboard; +/-1.0 mm axial float.
       Assembly order: push the link tube fully home in both fittings FIRST,
       then tighten the straps, so the tube is never stretched or compressed.
     * STATION BASE: ONE 12 mm cast acrylic plate. Through-cuts: outline, M6
@@ -89,18 +90,29 @@ SPLIT_GAP = C.SPLIT_GAP  # 1.0
 STRAP_TORQUE = 0.55  # N.m, design setting for MSAP elbow cable lever; preload/friction
 # remain estimates. Verified against 5x cable-pull margin and PETG bearing pressure.
 
-# Round section of the QSF, in fitting-local Z (port face = 0): from the end of
-# the hex chamfer cone (v = 19.8) to the start of the release-ring shoulder (v = 4.5)
-X_FACE = FM.L_TOTAL / 2 - FM.THREAD_L  # 25.5, QSF face on the meter
-ROUND_Z = (FC.L_TOTAL - FC.BODY_PROFILE[-1][1], FC.L_TOTAL - FC.BODY_PROFILE[2][1])  # 21.0, 36.3
-ROUND_LEN = ROUND_Z[1] - ROUND_Z[0]  # 15.3
-STRAP_X = X_FACE + (ROUND_Z[0] + ROUND_Z[1]) / 2  # strap centre from meter centre
+# Round section of the QSF, in fitting-local Z (port face = 0): FC.ROUND_V, from the
+# end of the hex chamfer cone to the collar (caliper)
+# The meter has no shoulder that stops the QSF: its 16 AF hex corners (dia 18.48) pass
+# inside the QSF thread. The fitting screws on until the meter end face bottoms, via the
+# sealing washer, on the port floor (THREAD_DEPTH from the port face).
+X_FACE = FM.L_TOTAL / 2 - (FC.THREAD_DEPTH - FC.WASHER_T)  # 22.5, QSF port face
+ROUND_Z = (FC.L_TOTAL - FC.ROUND_V[1], FC.L_TOTAL - FC.ROUND_V[0])  # 18.0, 29.0 (caliper)
+ROUND_LEN = ROUND_Z[1] - ROUND_Z[0]  # 11.0
 STRAP_W = 12.0  # along X
-AXIAL_FLOAT = (ROUND_LEN - STRAP_W) / 2  # +/-1.65
+# The real round section is only 11 long (caliper), shorter than the strap. The strap
+# keeps HEX_CLEAR off the hex-cone end and overhangs the collar outboard, which is
+# smaller than the bore (r <= 9.96 < POCKET_D / 2): it grips the round section only.
+HEX_CLEAR = 1.0
+STRAP_X = X_FACE + ROUND_Z[0] + HEX_CLEAR + STRAP_W / 2  # strap centre from meter centre
+RING_Z = FC.L_TOTAL - FC.RING_END_V  # release ring starts (fitting-local Z)
+# meter float before the strap meets the hex cone or reaches the release ring
+AXIAL_FLOAT = min(HEX_CLEAR, RING_Z - (ROUND_Z[0] + HEX_CLEAR + STRAP_W))  # +/-1.0
+# round-body length under the strap, worst case over the float
+STRAP_CONTACT = min(STRAP_W, ROUND_Z[1] - (ROUND_Z[0] + HEX_CLEAR + AXIAL_FLOAT))  # 9.0
 
 # Roll-stop pad under the meter's downward spanner flat (meter-local X range): 0.4 mm
 # inside the flat's neck end, 1.0 mm clear of the QSF face (X_FACE) at the other end
-PAD_X = (FM.SPANNER_X[0] + 0.4, FM.SPANNER_X[1] - 1.0)  # 15.9 .. 24.5
+PAD_X = (FM.SPANNER_X[0] + 0.4, min(FM.SPANNER_X[1], X_FACE) - 1.0)  # 15.9 .. 21.5
 PAD_W = 10.5  # across the flat (Y), inside its 11.5
 PAD_GAP = 0.5  # pad top below the flat: > pad-vs-bore print error (2 x PRINT_TOL), so
 # the pad never props the meter; the bores alone set its height
@@ -124,7 +136,7 @@ PLATE_T = C.PLATE_T  # 12, the one station plate
 BAR2_Y = (PLATE_T + BAR_T, AXIS_Y - SPLIT_GAP / 2 - PED_CHAMFER - JOINT_FILLET)
 PLATE_H = C.PLATE_H  # 92
 PLATE_L = 2 * (STRAP_X + STRAP_W / 2 + 3.5)  # station-plate length around the meter
-WALL_SCREW_X = 36.0  # between housing (+/-24.1) and straps (>= 48): hex-key path
+WALL_SCREW_X = 36.0  # between housing (+/-24.1) and straps (>= 41.5): hex-key path
 WALL_SCREW_Z = C.WALL_SCREW_Z  # 37 - clear of the flowmeter housing (Z +/-15.1)
 
 # --- Fasteners ---------------------------------------------------------------------

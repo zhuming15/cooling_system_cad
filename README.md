@@ -175,7 +175,7 @@ tests need the real parts, in this order:
 
 | # | Test | How | Pass when |
 |---|---|---|---|
-| 1 | Measure the bought-in parts | Calipers on the valve body (18 × 18, chamfers, port chamfer), the QSF round body (Ø20.8 × 15.3), the KQ2 hex, and the meter's end faces | Within 0.1 mm of the model; otherwise update the part file and re-run the checks |
+| 1 | Measure the bought-in parts | Calipers on the valve body (18 × 18, chamfers, port chamfer), the QSF round body (Ø20.8 × 11; port face → hex end 18), the KQ2 hex, and the meter's end faces | Within 0.1 mm of the model; otherwise update the part file and re-run the checks |
 | 2 | Plate coupon | Cut a 12 mm strip with Ø4.1 dowel holes, Ø4.5 holes, a 7.2 AF hex pocket 6 mm deep and an Ø11.5 counterbore 6 mm deep at the plate spacing; measure the sheet | Dowel slides in with no play you can feel; nut drops in, doesn't turn and sits flat on the pocket floor; M6 head ends flush; sheet 10.8–13.2 mm |
 | 3 | Print coupon | Print a 20 mm slice of each clamp (channel, bore, dowel hole, insert hole) | Valve body and QSF body slide in with slight drag; dowel presses in with a hand vise; insert sets square |
 | 4 | Insert pull-out | M4 into a set insert in the coupon, pull | Holds about 1.9 kN (3 × the 625 N screw preload) |
@@ -242,7 +242,7 @@ tests need the real parts, in this order:
     bends the 100 mm free tube by 0.45 %, under the 0.5 % limit.
   - Valve and meter sit on their cradle floors with the same 0.15 mm
     clearance, so both axes are the same distance from the wall.
-  - The tube is cut stop-to-stop. The straps allow ±1.65 mm of axial float:
+  - The tube is cut stop-to-stop. The 12 mm straps sit 1 mm off the QSF hex cone and overhang the smaller collar; they allow ±1.0 mm of axial float:
     push the tube home first and tighten the straps after, and the meter
     settles where the tube puts it.
 
@@ -265,6 +265,10 @@ These pass, but with little room. Re-check them after any change nearby:
   a base notched under the elbow gave 12.4 mm.
 - Roll-stop pad gap 0.5 mm against an estimated 0.4 mm pad-to-bore print
   error (2 × ±0.2). Confirm with real-part test 13.
+- Flowmeter strap axial float: ±1.0 mm against a ±1.0 mm minimum. The
+  real QSF round body is only 11 mm long (caliper), shorter than the 12 mm
+  strap; the strap sits 1 mm off the hex cone and overhangs the collar
+  (Ø19.3, estimated; it must stay under the Ø20.95 bore).
 - Wall screws: 6 × M6 carry the whole stack, 88 N per screw against a 100 N
   plasterboard-plug limit under a 500 N tube pull. Four would be 126 N; into
   masonry or a stud the limit is much higher.
@@ -277,6 +281,9 @@ These pass, but with little room. Re-check them after any change nearby:
   a flat washer only bears on two narrow lands, Ø11.7–12.65 and Ø16.95–18.4.
   Check on a real meter, or in ifm manual 11592037, whether it ships with
   seal rings in the grooves before ordering washers.
+- **QSF washer thickness.** The QSF position comes from the washer: the
+  model assumes 1.0 mm (`FC.WASHER_T`). Measure the fitted washer; a
+  different thickness moves both fittings and the straps by the difference.
 - **Material values are estimates** (no single source): PETG 15 MPa and
   acrylic 10 MPa allowable contact pressure, friction 0.3 PETG on brass,
   print ±0.2 mm, laser ±0.1 mm, tube strain limit 0.5 %, tube expansion
@@ -301,7 +308,7 @@ within 0.02 mm; the rest of the outline within 0.5 mm.
 | Part | Sources | Result |
 |---|---|---|
 | ifm SV3051 | ifm datasheet SV3051-00, ifm STEP CAD_STP_300_0358, manual 11592037 (torque 12 N·m, straight runs, orientation) | All dimensions read off the STEP. G1/2 ends, end-face groove, shoulder, bore, 16 AF hex and 12 AF flats within 0.001 mm; outline within 0.32 mm. The datasheet lists a display; this unit has none, so none is modelled |
-| Festo QSF-1/2-12-B | Festo datasheet 190653, RS/TraceParts 3D model | Round body, hex and port face within 0.003 mm; outline 0.01 mm. Insertion depth 23.3 mm |
+| Festo QSF-1/2-12-B | Festo datasheet 190653, RS/TraceParts 3D model, user caliper measurements (2026-11-25) | **Caliper values override the RS model**: length 40, port face → hex end 18, round Ø20.8 section 11, ring end zone 11; on the meter with washers the port faces are 45 apart, so the port floor is 17 deep (16 + 1 mm washer, washer thickness estimated). The RS model (hex 21, round 15.3, 40.8 long) no longer matches, so `cad_compare.py flowmeter_connector` fails on the outline. The meter has no shoulder that stops the QSF: it bottoms on the end face. Insertion depth 23.3 mm (datasheet) |
 | SMC KQ2H12-U02A | SMC KQ2 catalogue, RS/TraceParts 3D model | Thread, undercut, seal face and hex within 0.001 mm |
 | RS 283-8289 valve | Tognella FT 1251/2-01 datasheet, table type 14 | Body 18 × 18 × 46, G1/4 ports 12 deep, M17×1 bush, Ø22 knob, height 57 from the table. Edge chamfer 2.5, boss 18 × 2.5 and the back groove scaled from the drawing (±0.3 mm). No vendor 3D model exists |
 
