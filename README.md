@@ -1,4 +1,4 @@
-# Flow station: flowmeter and flow control valve, three sets stacked on the wall
+# Flow station: flowmeter and flow control valve, four sets stacked on the wall
 
 Parametric CAD (Python, [build123d](https://github.com/gumyr/build123d)) for a
 small wall-mounted water station. Water passes through an ifm SV3051 vortex
@@ -10,7 +10,7 @@ inlet tube → ifm SV3051 flowmeter → 140.3 mm link tube → RS 283-8289 needl
 ```
 
 Both components sit in 3D-printed PETG clamps on one 12 mm acrylic plate,
-which screws to the wall. Three identical sets are stacked one above the
+which screws to the wall. Four identical sets are stacked one above the
 other, 140 mm apart, all on that one plate (`assembly.STACK_N`,
 `assembly.STACK_PITCH`).
 
@@ -37,7 +37,7 @@ Contents: [Ratings](#ratings) · [Bill of materials](#bill-of-materials) ·
 | Water temperature | 0–40 °C (limited by the SMC KQ2 fittings) |
 | Flow measured | 0.5–10 l/min (SV3051) |
 | Tube | 12 mm OD × 8 mm ID, PU or PA |
-| Station size | One 300 × 372 × 12 mm plate for the stack of 3 (140 mm pitch); 78 mm deep from the wall to the valve knob |
+| Station size | One 289.4 × 512 × 12 mm plate for the stack of 4 (140 mm pitch); 78 mm deep from the wall to the valve knob |
 
 The valve itself is rated 210 bar and the meter 16 bar. Don't use those
 numbers for the station.
@@ -45,8 +45,8 @@ numbers for the station.
 ## Bill of materials
 
 `output/step/bom.csv` is generated from the model and lists every part with
-its STEP file, with quantities for the whole stack of three sets. The
-quantities in the tables below are **per set**; order three times as many,
+its STEP file, with quantities for the whole stack of four sets. The
+quantities in the tables below are **per set**; order four times as many,
 except the station plate and its 6 M6 wall screws: those are for the whole stack.
 
 ### Bought-in parts
@@ -65,7 +65,7 @@ except the station plate and its 6 M6 wall screws: those are for the whole stack
 
 | Part | Qty | Process | File |
 |---|---|---|---|
-| Station plate | 1 for the stack | CNC-routed 12 mm cast acrylic, 300 × 372 mm: through-cuts plus two 6 mm pocket features | `flowmeter_clamp/base_plate.dxf` |
+| Station plate | 1 for the stack | CNC-routed 12 mm cast acrylic, 289.4 × 512 mm: through-cuts plus two 6 mm pocket features | `flowmeter_clamp/base_plate.dxf` |
 | Valve clamp base | 1 | FDM print, PETG | `output/step/06_valve_clamp_base.step` |
 | Valve clamp cap | 1 | FDM print, PETG | `output/step/07_valve_clamp_cap.step` |
 | Flowmeter clamp base (both pedestals and the lower bar, one piece) | 1 | FDM print, PETG | `output/step/08_flowmeter_clamp_base.step` |
@@ -87,7 +87,7 @@ except the station plate and its 6 M6 wall screws: those are for the whole stack
 
 ### Station plate
 
-- One plate of 12 mm cast acrylic, 300 × 372 mm, carries all three sets:
+- One plate of 12 mm cast acrylic, 289.4 × 512 mm, carries all four sets:
   each set's holes, pockets and wall slots are repeated at 140 mm. The DXF is in mm,
   one layer per feature. Regenerate it with
   `uv run python flowmeter_clamp/flowmeter_clamp.py`.
@@ -148,7 +148,7 @@ except the station plate and its 6 M6 wall screws: those are for the whole stack
    unit.
 2. Screw the one plate to the wall with 6 × M6: three along the bottom edge,
    three along the top, outside the sets. The vertical slots give ±3 mm of
-   adjustment and move every clamp together. The three
+   adjustment and move every clamp together. The four
    sets sit 140 mm apart on it; any set's clamps, bench unit and hardware
    can be fitted, serviced or removed with the other sets in place.
 3. Push each clamp base onto its dowel holes and fix it with 2 × M4 through
@@ -257,8 +257,8 @@ These pass, but with little room. Re-check them after any change nearby:
 - Flowmeter strap counterbores: Ø9.5 in the 12 mm strap leaves 1.25 mm side
   walls against the 1.2 mm (3-perimeter) minimum.
 - Wall screws: 6 × M6 carry the whole stack, 88 N per screw against a 100 N
-  plasterboard-plug limit under a 500 N tube pull. Four would be 126 N; into
-  masonry or a stud the limit is much higher.
+  plasterboard-plug limit under a 500 N tube pull (4-set stack, 4.3 kg). Four
+  screws would be 129 N; into masonry or a stud the limit is much higher.
 
 ## Open items
 

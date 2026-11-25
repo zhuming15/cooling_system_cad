@@ -1,7 +1,7 @@
 ISO-10303-21;
 HEADER;
 FILE_DESCRIPTION(('Open CASCADE Model'),'2;1');
-FILE_NAME('m4_mount_screw','2026-11-25T17:22:01',('Author'),(
+FILE_NAME('m4_mount_screw','2026-11-25T17:28:48',('Author'),(
     'Open CASCADE'),'Open CASCADE STEP processor 8.0','build123d',
   'Unknown');
 FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }'));
@@ -282,7 +282,7 @@ SHAPE_REPRESENTATION_RELATIONSHIP() );
 #232 = ITEM_DEFINED_TRANSFORMATION('','',#11,#15);
 #233 = PRODUCT_DEFINITION_SHAPE('Placement','Placement of an item',#234
   );
-#234 = NEXT_ASSEMBLY_USAGE_OCCURRENCE('260','m4_mount_screw','',#5,#27,$
+#234 = NEXT_ASSEMBLY_USAGE_OCCURRENCE('332','m4_mount_screw','',#5,#27,$
   );
 #235 = PRODUCT_RELATED_PRODUCT_CATEGORY('part',$,(#29));
 ENDSEC;

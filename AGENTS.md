@@ -7,7 +7,7 @@ Guidance for AI coding agents working in this repo. For humans, start with
 
 Parametric build123d CAD for a wall-mounted water flow station: flowmeter,
 then a straight link tube, then the flow control valve, all on one wall base.
-Three identical sets are stacked on the wall (`assembly.STACK_N`,
+Four identical sets are stacked on the wall (`assembly.STACK_N`,
 `STACK_PITCH`), all on ONE station plate.
 `assembly.py` is the acceptance test for the whole station.
 

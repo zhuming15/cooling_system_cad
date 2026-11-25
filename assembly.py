@@ -104,7 +104,7 @@ ASSEMBLY_ORDER = (
     ),
 )
 # Stack: STACK_N identical sets one above the other, all on one station plate.
-STACK_N = 3  # user: three sets in total, stacked
+STACK_N = 4  # user: four sets in total, stacked (was 3 until 2026-11-25)
 # Set-to-set pitch. Ruled by the M12 elbow: lifted M12_LIFT off its socket (top
 # Z 113.6) it must clear the set above, whose lowest part there is the flowmeter
 # clamp base (Z -23 in its own set) -> >= 136.6; 140 leaves 3.4 mm.
