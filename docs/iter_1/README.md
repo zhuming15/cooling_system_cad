@@ -124,7 +124,7 @@ not fitted.*
 | I1 | Flowmeter clamp 16 mm too long | (a) QSF hex and round-body lengths taken from the RS/TraceParts web model, which differs from the real part. (b) QSF placed at the end of the meter thread, where the meter has no shoulder | QSF re-modelled from caliper values. Each QSF is now placed where the meter end face bottoms on the washer at the port floor. Pedestals 83 mm apart (base 107 mm overall) | `a849c80` |
 | I2 | The design checks did not catch I1 | The KQ2 fittings had a thread-engagement check but the QSF fittings had none. The RS mesh is solid inside, so the port depth was never compared | New check: the QSF bottoms on the meter end face through the washer, with a negative test that moves a fitting ±1 mm | `a849c80` |
 | I3 | Roll-stop pad and second lower bar not needed | Over-design; strap friction is enough (O4, O5) | Removed. Dowels moved from ±40 to ±34 mm | `81890b0` |
-| I4 | Two-layer plate not needed | Over-design (O6) | One 12 mm acrylic plate with 6 mm pockets for the nuts and M6 heads. Now carries three stacked sets | `e1337c6`, `442975d` |
+| I4 | Two-layer plate not needed | Over-design (O6) | One 12 mm acrylic plate with 6 mm pockets for the nuts and M6 heads. Now carries four stacked sets | `e1337c6`, `442975d`, `7632735` |
 
 **Why the target is 83 mm and not 80 mm:** the QSF hex ends 40.5 mm from the
 meter centre. A 12 mm strap must clear the hex by 1 mm and needs ±1 mm of
@@ -193,8 +193,8 @@ axial float, which puts the pedestal inner faces at ±41.5 mm. The measured
 | A1 | Re-model the QSF from caliper values | Done | `a849c80` |
 | A2 | Place the QSF by its real stop; add the engagement check and negative test | Done | `a849c80` |
 | A3 | Remove the roll-stop pad and second lower bar; move the dowels to ±34 mm | Done | `81890b0` |
-| A4 | One 12 mm pocketed plate for three stacked sets, 6 wall screws | Done | `e1337c6`, `442975d`, `f6ba558` |
-| A5 | Counterbore the flowmeter straps like the valve cap (Ø9.5 × 5.5, M4 × 25 screws) | In progress | — |
+| A4 | One 12 mm pocketed plate for stacked sets (three, then four), 6 wall screws | Done | `e1337c6`, `442975d`, `f6ba558`, `7632735` |
+| A5 | Counterbore the flowmeter straps like the valve cap (Ø9.5 × 5.5, M4 × 25 screws) | Done | `0964550` |
 | A6 | Measure the washer thickness (R1) and the QSF collar diameter (R2); update `WASHER_T` | Open | — |
 | A7 | Measure the valve body, KQ2 hex and meter end faces (rest of test 1) | Open | — |
 | A8 | Cut the plate coupon and print the clamp coupons (tests 2–4) | Open | — |
@@ -219,6 +219,8 @@ axial float, which puts the pedestal inner faces at ±41.5 mm. The measured
 | `0b2ba07` | 2026-11-24 | Roll-stop pad and second bar added (removed again in `81890b0`) |
 | `a849c80` | 2026-11-25 | QSF from caliper values, placed by its real stop (I1, I2) |
 | `81890b0` | 2026-11-25 | Pad and second bar removed (I3) |
+| `0964550` | 2026-11-25 | Flowmeter strap counterbores, M4 × 25 strap screws (A5) |
+| `7632735` | 2026-11-25 | Four sets stacked on the station plate instead of three |
 
 ### B. Iteration 1 CAD
 
