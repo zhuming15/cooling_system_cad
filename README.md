@@ -79,7 +79,7 @@ except the station plate and its 6 M6 wall screws: those are for the whole stack
 | ISO 4762 M4 × 16 and M4 × 12 | 2 + 2 | Clamp bases to the plate | 0.2 N·m |
 | ISO 4032 M4 nut | 4 | Captive in the plate | |
 | ISO 4762 M4 × 20 + DIN 125 washer | 4 | Valve cap | 0.5 N·m |
-| ISO 4762 M4 × 30 + DIN 125 washer | 4 | Flowmeter straps | 0.55 N·m |
+| ISO 4762 M4 × 25 + DIN 125 washer | 4 | Flowmeter straps | 0.55 N·m |
 | Heat-set insert M4 × 8.1 (ruthex RX-M4x8.1 or equal), Ø5.6 hole | 8 | In the clamp bases | |
 | M6 socket head screw + wall plug | 6 for the stack | Plate to the wall (not per set) | |
 
@@ -162,7 +162,7 @@ except the station plate and its 6 M6 wall screws: those are for the whole stack
    - Hold the meter level (housing straight up) while you tighten the
      straps; strap friction alone keeps it there (there is no roll-stop pad).
 5. Fit the valve cap with 4 × M4 × 20 and washers, and the two straps with
-   M4 × 30 and washers. Tighten the valve cap to **0.5 N·m** and flowmeter
+   M4 × 25 and washers. Tighten the valve cap to **0.5 N·m** and flowmeter
    straps to **0.55 N·m**. Re-check after 24 h.
 6. Push in the inlet and outlet tubes. Keep at least 100 mm of straight tube
    ahead of the meter, and support the tubes beyond the station.
@@ -254,6 +254,8 @@ These pass, but with little room. Re-check them after any change nearby:
   real QSF round body is only 11 mm long (caliper), shorter than the 12 mm
   strap; the strap sits 1 mm off the hex cone and overhangs the collar
   (Ø19.3, estimated; it must stay under the Ø20.95 bore).
+- Flowmeter strap counterbores: Ø9.5 in the 12 mm strap leaves 1.25 mm side
+  walls against the 1.2 mm (3-perimeter) minimum.
 - Wall screws: 6 × M6 carry the whole stack, 88 N per screw against a 100 N
   plasterboard-plug limit under a 500 N tube pull. Four would be 126 N; into
   masonry or a stud the limit is much higher.

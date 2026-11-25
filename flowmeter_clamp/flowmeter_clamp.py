@@ -23,8 +23,8 @@ Concept
       into a captive nut in the plate: fit it BEFORE the meter, which then
       covers the heads.
     * STRAPS (printed) - two clamp heads with upper half-bores, 2 x M4 + DIN 125
-      washers each (on the strap face: a counterbore would leave 1.25 mm walls
-      in a 12 mm strap) into heat-set inserts in the pedestals. Split-gap preload:
+      washers each, recessed in dia 9.5 counterbores like the valve cap (1.25 mm
+      side walls in a 12 mm strap), into heat-set inserts in the pedestals. Split-gap preload:
       the half-bores are 1.0 mm short of closing.
     * Straps are 12 mm wide on the 11 mm round section (caliper): 1 mm off the hex cone,
       overhanging the smaller collar outboard; +/-1.0 mm axial float.
@@ -132,7 +132,9 @@ Y_BORE_BOTTOM = AXIS_Y - POCKET_D / 2
 FM_Y = AXIS_Y - POCKET_D / 2 + BODY_D / 2  # clamped fitting/meter axis
 CAP_DROP = (AXIS_Y + POCKET_D / 2) - (FM_Y + BODY_D / 2)  # 0.15
 CLAMP_PRELOAD_TRAVEL = SPLIT_GAP - CAP_DROP
-CAP_SEAT = Y_CAP_TOP + C.WASHER[2] - CAP_DROP  # washer on top: no counterbore in a 12 mm strap
+# head seat, clamped: washer + head recessed in a counterbore, as on the valve cap
+# (dia 9.5 in a 12 mm strap leaves 1.25 mm side walls, >= 3 perimeters)
+CAP_SEAT = Y_CAP_TOP - C.CAP_CB_DEPTH + C.WASHER[2] - CAP_DROP
 CAP_SCREW_LEN = C.cap_screw_length(CAP_SEAT, Y_SPLIT_BASE)
 MOUNT_SEAT, MOUNT_LEN = C.mount_screw(Y_BORE_BOTTOM)
 
@@ -227,7 +229,7 @@ def make_cap_unclamped(xc: float) -> Solid:
     )
     cap = chamfer(cap.edges().filter_by(Axis.X).group_by(Axis.Y)[-1], PED_CHAMFER)
     cap -= _bore(xc)
-    return C.cap_holes(cap, [(xc, sz * M4_Z) for sz in (-1, 1)], Y_CAP_TOP, counterbore=False)
+    return C.cap_holes(cap, [(xc, sz * M4_Z) for sz in (-1, 1)], Y_CAP_TOP)
 
 
 def make_caps(x_center: float) -> list[Solid]:

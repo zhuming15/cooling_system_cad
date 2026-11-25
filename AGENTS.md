@@ -271,6 +271,8 @@ and the README "Tight margins" list must stay current:
 - Flowmeter strap float `FCL.AXIAL_FLOAT` ±1.0 against ±1.0: 12 mm straps
   `FCL.HEX_CLEAR` off the QSF hex cone, overhanging the collar (estimated
   Ø19.3, inside the bore) because the real round body is only 11 mm.
+- Flowmeter strap counterbores (`C.CAP_CB_D` 9.5 in a 12 mm strap): 1.25 mm
+  side walls against `MIN_WALL` 1.2.
 - Wall screws: 6 × M6 for the whole stack (`FCL.wall_screw_xz`), 88 / 100 N per
   screw; they are `SHARED` (the plate's), not per set.
 
